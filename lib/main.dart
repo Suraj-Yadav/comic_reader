@@ -1,14 +1,17 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
+import 'dart:ui';
+import 'package:path/path.dart' as path;
 
 import 'package:archive/archive_io.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:file_chooser/file_chooser.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mime/mime.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
+import 'package:window_size/window_size.dart' as window_size;
 
 const PAGE_CHANGE_DURATION = 500;
 const PAN_DURATION = 1000;
@@ -42,7 +45,7 @@ Iterable<List<T>> zip<T>(Iterable<Iterable<T>> iterables) sync* {
 void main() {
   runApp(MaterialApp(
     title: 'Comic Reader',
-    home: PickUpPage(),
+    home: FilePickerRoute(),
   ));
 }
 
@@ -61,9 +64,12 @@ class ComicPage {
   }
 }
 
-class PickUpPage extends StatelessWidget {
+class FilePickerRoute extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+      window_size.setWindowTitle('Pick A File');
+    }
     return Scaffold(
         appBar: AppBar(
           title: Text("Choose File"),
@@ -86,9 +92,14 @@ class PickUpPage extends StatelessWidget {
 
   _openFileExplorer(BuildContext context) async {
     try {
-      final path = await FilePicker.getFilePath();
-      if (path != null) {
-        final file = File(path);
+      final chosenFiles = await showOpenPanel(allowedFileTypes: ['cbz']);
+
+      if (!chosenFiles.canceled && chosenFiles.paths.length > 0) {
+        if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+          window_size.setWindowTitle(
+              path.basenameWithoutExtension(chosenFiles.paths[0]));
+        }
+        final file = File(chosenFiles.paths[0]);
         final archive = new ZipDecoder().decodeBytes(file.readAsBytesSync());
         final List<ComicPage> images = [];
         for (var file in archive.files) {
@@ -100,7 +111,7 @@ class PickUpPage extends StatelessWidget {
           }
         }
         Navigator.push(context,
-            MaterialPageRoute(builder: (context) => ViewerPage(images)));
+            MaterialPageRoute(builder: (context) => ComicViewerRoute(images)));
       }
     } on PlatformException catch (e) {
       print("Unsupported operation" + e.toString());
@@ -108,17 +119,19 @@ class PickUpPage extends StatelessWidget {
   }
 }
 
-class ViewerPage extends StatefulWidget {
+class ComicViewerRoute extends StatefulWidget {
   final List<ComicPage> _images;
   final PageController _pageController;
 
-  ViewerPage(this._images) : _pageController = PageController(initialPage: 0);
+  ComicViewerRoute(this._images)
+      : _pageController = PageController(initialPage: 0);
 
   @override
-  State<StatefulWidget> createState() => _ViewerPageState();
+  State<StatefulWidget> createState() => _ComicViewerRouteState();
 }
 
-class _ViewerPageState extends State<ViewerPage> with TickerProviderStateMixin {
+class _ComicViewerRouteState extends State<ComicViewerRoute>
+    with TickerProviderStateMixin {
   int _pageIndex = 0;
   bool _isAnimating = false;
   Animation<Rect> _animation;
@@ -177,6 +190,7 @@ class _ViewerPageState extends State<ViewerPage> with TickerProviderStateMixin {
     for (var i = 0; i < widget._images.length; i++) {
       pageOptions.add(PhotoViewGalleryPageOptions(
         imageProvider: widget._images[i]._page.image,
+        filterQuality: FilterQuality.high,
         onTapDown: onTapDown,
         basePosition: Alignment.topRight,
         initialScale: _scale,
@@ -200,72 +214,77 @@ class _ViewerPageState extends State<ViewerPage> with TickerProviderStateMixin {
       },
       child: Scaffold(
         backgroundColor: Color.fromRGBO(25, 25, 25, 1),
-        body: Stack(
-          children: [
-            PhotoViewGallery(
-              backgroundDecoration: BoxDecoration(color: Colors.transparent),
-              scrollPhysics: BouncingScrollPhysics(),
-              onPageChanged: onPageChanged,
-              pageController: widget._pageController,
-              pageOptions: pageOptions,
-            ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: ClipRRect(
-                borderRadius:
-                    BorderRadius.vertical(top: const Radius.circular(10)),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  color: Colors.grey,
-                  child: Text(
-                    (_pageIndex + 1).toString() +
-                        '/' +
-                        widget._images.length.toString(),
-                    style: TextStyle(fontSize: 20),
+        body: RawKeyboardListener(
+          focusNode: FocusNode(),
+          onKey: onKeyChange,
+          child: Stack(
+            children: [
+              PhotoViewGallery(
+                backgroundDecoration: BoxDecoration(color: Colors.transparent),
+                scrollPhysics: BouncingScrollPhysics(),
+                onPageChanged: onPageChanged,
+                pageController: widget._pageController,
+                pageOptions: pageOptions,
+              ),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: ClipRRect(
+                  borderRadius:
+                      BorderRadius.vertical(top: const Radius.circular(10)),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    color: Colors.grey,
+                    child: Text(
+                      (_pageIndex + 1).toString() +
+                          '/' +
+                          widget._images.length.toString(),
+                      style: TextStyle(fontSize: 20),
+                    ),
                   ),
                 ),
               ),
-            ),
-            Align(
-              alignment: Alignment.bottomRight,
-              child: Opacity(
-                opacity: 0.5,
-                child: widget._images[_pageIndex]._size != null &&
-                        _viewport != null
-                    ? Container(
-                        width: 150,
-                        height: widget._images[_pageIndex]._size.height *
-                            (150 / widget._images[_pageIndex]._size.width),
-                        child: Stack(
-                          children: [
-                            widget._images[_pageIndex]._page,
-                            Positioned(
-                              top: (150 /
-                                      widget._images[_pageIndex]._size.width) *
-                                  _viewport.top,
-                              left: 150 *
-                                  _viewport.left /
-                                  widget._images[_pageIndex]._size.width,
-                              child: Container(
-                                width: 150 *
-                                    _viewport.width /
-                                    widget._images[_pageIndex]._size.width,
-                                height: (150 /
+              Align(
+                alignment: Alignment.bottomRight,
+                child: Opacity(
+                  opacity: 0.5,
+                  child: widget._images[_pageIndex]._size != null &&
+                          _viewport != null
+                      ? Container(
+                          width: 150,
+                          height: widget._images[_pageIndex]._size.height *
+                              (150 / widget._images[_pageIndex]._size.width),
+                          child: Stack(
+                            children: [
+                              widget._images[_pageIndex]._page,
+                              Positioned(
+                                top: (150 /
                                         widget
                                             ._images[_pageIndex]._size.width) *
-                                    _viewport.height,
-                                decoration: BoxDecoration(
-                                    border: Border.all(
-                                        color: Colors.red, width: 2)),
-                              ),
-                            )
-                          ],
-                        ),
-                      )
-                    : Container(),
-              ),
-            )
-          ],
+                                    _viewport.top,
+                                left: 150 *
+                                    _viewport.left /
+                                    widget._images[_pageIndex]._size.width,
+                                child: Container(
+                                  width: 150 *
+                                      _viewport.width /
+                                      widget._images[_pageIndex]._size.width,
+                                  height: (150 /
+                                          widget._images[_pageIndex]._size
+                                              .width) *
+                                      _viewport.height,
+                                  decoration: BoxDecoration(
+                                      border: Border.all(
+                                          color: Colors.red, width: 2)),
+                                ),
+                              )
+                            ],
+                          ),
+                        )
+                      : Container(),
+                ),
+              )
+            ],
+          ),
         ),
       ),
     );
@@ -332,18 +351,19 @@ class _ViewerPageState extends State<ViewerPage> with TickerProviderStateMixin {
         {
           if (viewport.right.lessThan(imageSize.width)) {
             return viewport.translate(
-                min(viewport.width, imageSize.width - viewport.right), 0);
+                min(viewport.width / 2, imageSize.width - viewport.right), 0);
           }
           return viewport.translate(-viewport.left,
-              min(viewport.height, imageSize.height - viewport.bottom));
+              min(viewport.height / 2, imageSize.height - viewport.bottom));
         }
       case Direction.PREVIOUS:
         {
           if (viewport.left.greaterThan(0.0)) {
-            return viewport.translate(-min(viewport.width, viewport.left), 0);
+            return viewport.translate(
+                -min(viewport.width / 2, viewport.left), 0);
           }
           return viewport.translate(imageSize.width - viewport.width,
-              -min(viewport.height, viewport.top));
+              -min(viewport.height / 2, viewport.top));
         }
       default:
         return viewport;
@@ -414,56 +434,64 @@ class _ViewerPageState extends State<ViewerPage> with TickerProviderStateMixin {
     return newViewport;
   }
 
-  void onTapDown(BuildContext context, TapDownDetails details,
-      PhotoViewControllerValue controllerValue) {
-    // print('${DateTime.now().millisecondsSinceEpoch}: onTapDown');
-    if (_isAnimating) {
-      return;
-    }
-    final screenSize = MediaQuery.of(context).size;
+  void moveViewport(Direction direction) {
     final imageSize = widget._images[_pageIndex]._size;
-
-    final viewport = _viewport ??
-        computeViewPort(screenSize, imageSize, controllerValue.position,
-            controllerValue.scale);
-
-    final Direction direction =
-        getDirection(details.globalPosition, screenSize);
-
-    if (direction == Direction.STAY) {
-      return;
-    }
-
-    var nextViewPort = viewport;
-
+    final viewport = _viewport;
     final gotoNextPage = !viewport.right.lessThan(imageSize.width) &&
         !viewport.bottom.lessThan(imageSize.height);
-
     final gotoPreviousPage =
         !viewport.left.greaterThan(0.0) && !viewport.top.greaterThan(0.0);
+
+    var nextViewPort = viewport;
 
     if (direction == Direction.NEXT && gotoNextPage) {
       if (_pageIndex < (widget._images.length - 1)) {
         _isAnimating = true;
-        // final nextImageSize = widget._images[_pageIndex + 1]._size;
-        // nextViewPort = viewport.translate(-viewport.left, -viewport.top);
-        // _viewport = centralizeViewport(nextViewPort, nextImageSize);
         startPageChangeAnimation(_pageIndex + 1);
       }
     } else if (direction == Direction.PREVIOUS && gotoPreviousPage) {
       if (_pageIndex > 0) {
         _isAnimating = true;
-        // final previousImageSize = widget._images[_pageIndex - 1]._size;
-        // nextViewPort = viewport.translate(
-        //     previousImageSize.width - viewport.right,
-        //     previousImageSize.height - viewport.bottom);
-        // _viewport = centralizeViewport(nextViewPort, previousImageSize);
         startPageChangeAnimation(_pageIndex - 1);
       }
     } else if (direction != Direction.STAY) {
       nextViewPort = centralizeViewport(
           computeNextViewPort(viewport, direction), imageSize);
       startPanningAnimation(viewport, nextViewPort);
+    }
+  }
+
+  void onTapDown(BuildContext context, TapDownDetails details,
+      PhotoViewControllerValue controllerValue) {
+    // print('${DateTime.now().millisecondsSinceEpoch}: onTapDown');
+    if (_isAnimating) {
+      return;
+    }
+
+    final screenSize = MediaQuery.of(context).size;
+    double horizontalTapArea = details.globalPosition.dx / screenSize.width;
+
+    Direction direction = Direction.STAY;
+    if (horizontalTapArea <= 0.2) {
+      direction = Direction.PREVIOUS;
+    } else if (horizontalTapArea >= 0.8) {
+      direction = Direction.NEXT;
+    }
+    if (direction == Direction.STAY) {
+      return;
+    }
+    moveViewport(direction);
+  }
+
+  void onKeyChange(RawKeyEvent value) {
+    if (!_isAnimating && value is RawKeyDownEvent) {
+      if (value.data.logicalKey == LogicalKeyboardKey.escape) {
+        Navigator.pop(context);
+      } else if (value.data.logicalKey == LogicalKeyboardKey.arrowRight) {
+        moveViewport(Direction.NEXT);
+      } else if (value.data.logicalKey == LogicalKeyboardKey.arrowLeft) {
+        moveViewport(Direction.PREVIOUS);
+      }
     }
   }
 }

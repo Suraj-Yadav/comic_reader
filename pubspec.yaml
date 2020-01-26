@@ -27,6 +27,16 @@ dependencies:
   file_picker: ^1.4.3+2
   mime: ^0.9.6+3
   photo_view: ^0.9.1
+  
+  file_chooser:
+    git: 
+      url: git://github.com/google/flutter-desktop-embedding.git
+      path: plugins/file_chooser
+  window_size:
+    git: 
+      url: git://github.com/google/flutter-desktop-embedding.git
+      path: plugins/window_size
+    
 
 dev_dependencies:
   flutter_test:
