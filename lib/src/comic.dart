@@ -1,8 +1,7 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
-
 import 'package:archive/archive_io.dart';
+import 'package:flutter/material.dart';
 import 'package:mime/mime.dart';
 
 class ComicPage {

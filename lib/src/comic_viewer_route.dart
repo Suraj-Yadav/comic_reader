@@ -1,17 +1,20 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
 
 import 'package:comic_reader/src/comic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as path;
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
+import 'package:window_size/window_size.dart' as window_size;
 
 const PAGE_CHANGE_DURATION = 500;
 const PAN_DURATION = 1000;
 
-const DEBUG = true;
+const DEBUG = false;
 
 const EPSILON = 0.000001;
 
@@ -24,6 +27,10 @@ extension FuzzyCompare on double {
 
   bool greaterThan(double that) {
     return this > (that + max(max(that.abs(), this.abs()), EPSILON) * 0.01);
+  }
+
+  bool almostEqual(double that) {
+    return (this - that).abs() < EPSILON;
   }
 }
 
@@ -44,6 +51,18 @@ class ComicViewerRoute extends StatefulWidget {
   State<StatefulWidget> createState() => _ComicViewerRouteState();
 }
 
+extension FuzzyCompareRect on Rect {
+  bool almostEqual(dynamic other) {
+    if (identical(this, other)) return true;
+    if (runtimeType != other.runtimeType) return false;
+    return other is Rect &&
+        other.left.almostEqual(this.left) &&
+        other.top.almostEqual(this.top) &&
+        other.right.almostEqual(this.right) &&
+        other.bottom.almostEqual(this.bottom);
+  }
+}
+
 class _ComicViewerRouteState extends State<ComicViewerRoute>
     with TickerProviderStateMixin {
   int _pageIndex = 0;
@@ -58,7 +77,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
 
   @override
   void initState() {
-    // print('${DateTime.now().millisecondsSinceEpoch}: initState');
+    // log('${DateTime.now().millisecondsSinceEpoch}: initState');
     widget.comic.loadPages();
     _controllers = [];
     for (var i = 0; i < widget.comic.pages.length; i++) {
@@ -73,7 +92,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
   @override
   void dispose() {
     widget.comic.cleanPages();
-    // print('${DateTime.now().millisecondsSinceEpoch}: dispose');
+    // log('${DateTime.now().millisecondsSinceEpoch}: dispose');
     _controllers.forEach((controller) => controller.dispose());
     if (_animationController != null) {
       _animationController.dispose();
@@ -91,7 +110,25 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
       if (currentImage.size != null) {
         final newViewport = computeViewPort(MediaQuery.of(context).size,
             currentImage.size, value.position, value.scale);
-        if (_scale != value.scale || newViewport != _viewport) {
+        // print('\n' +
+        //     StackTrace.current.toString().split('\n')[0] +
+        //     '\n _scale: ${_scale}\n\n');
+        // print('\n' +
+        //     StackTrace.current.toString().split('\n')[0] +
+        //     '\n value.scale: ${value.scale}\n\n');
+        // print('\n' +
+        //     StackTrace.current.toString().split('\n')[0] +
+        //     '\n newViewport: ${newViewport}\n\n');
+        // print('\n' +
+        //     StackTrace.current.toString().split('\n')[0] +
+        //     '\n _viewport: ${_viewport}\n\n');
+        // print('\n' +
+        //     StackTrace.current.toString().split('\n')[0] +
+        //     '\n _scale != value.scale: ${_scale != value.scale}\n\n');
+        // print('\n' +
+        //     StackTrace.current.toString().split('\n')[0] +
+        //     '\n newViewport != _viewport: ${newViewport != _viewport}\n\n');
+        if (_scale != value.scale || !newViewport.almostEqual(_viewport)) {
           setState(() {
             _viewport = newViewport;
             _scale = value.scale;
@@ -103,7 +140,11 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
 
   @override
   Widget build(BuildContext context) {
-    // print('${DateTime.now().millisecondsSinceEpoch}: build');
+    // log('${DateTime.now().millisecondsSinceEpoch}: build');
+    if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+      window_size
+          .setWindowTitle(path.basenameWithoutExtension(widget.comic.filePath));
+    }
     if (_viewport != null) {
       final screenSize = MediaQuery.of(context).size;
       final imageSize = widget.comic.pages[_pageIndex].size;
@@ -181,6 +222,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
         child: Scaffold(
             backgroundColor: Color.fromRGBO(25, 25, 25, 1),
             body: RawKeyboardListener(
+                autofocus: true,
                 focusNode: FocusNode(),
                 onKey: onKeyChange,
                 child: Stack(children: stackChilds))));
@@ -199,8 +241,8 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
   }
 
   void onPageChanged(int index) {
-    // print(
-    // '${DateTime.now().millisecondsSinceEpoch}: onPageChanged, index: $index');
+    // log(
+    //     '${DateTime.now().millisecondsSinceEpoch}: onPageChanged, index: $index');
     final newImageSize = widget.comic.pages[index].size;
     if (index > _pageIndex) {
       _viewport = centralizeViewport(
@@ -213,7 +255,8 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
     }
 
     // This is needed beacuse i haven't figured a way to specify initial location for a new page
-    startPanningAnimation(_viewport, _viewport);
+    startPanningAnimation(_viewport, _viewport.translate(0, 10));
+    startPanningAnimation(_viewport, _viewport.translate(0, -10));
 
     if (_pageChangeTimer != null) {
       _pageChangeTimer.cancel();
@@ -359,7 +402,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
 
   void onTapDown(BuildContext context, TapDownDetails details,
       PhotoViewControllerValue controllerValue) {
-    // print('${DateTime.now().millisecondsSinceEpoch}: onTapDown');
+    // log('${DateTime.now().millisecondsSinceEpoch}: onTapDown');
     if (_isAnimating) {
       return;
     }
