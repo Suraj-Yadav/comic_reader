@@ -1,5 +1,5 @@
-import 'dart:convert';
 import 'dart:io';
+import 'package:collection/collection.dart';
 
 import 'package:comic_reader/src/comic.dart';
 import 'package:comic_reader/src/comic_grid_route.dart';
@@ -21,7 +21,7 @@ class FilePickerRoute extends StatelessWidget {
       body: Center(
         child: RaisedButton(
           onPressed: () async {
-            final filePaths = [];
+            final List<String> filePaths = [];
             if (Platform.isAndroid || Platform.isIOS) {
               var res = await FilePicker.getMultiFilePath();
               filePaths.addAll(
@@ -34,6 +34,7 @@ class FilePickerRoute extends StatelessWidget {
               }
             }
             if (filePaths.isNotEmpty) {
+              filePaths.sort(compareAsciiLowerCaseNatural);
               Navigator.push(
                   context,
                   MaterialPageRoute(
