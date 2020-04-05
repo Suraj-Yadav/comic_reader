@@ -4,6 +4,7 @@ import 'package:comic_reader/src/comic_viewer_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:window_size/window_size.dart' as window_size;
+import 'package:path/path.dart' as path;
 
 import 'comic.dart';
 
@@ -42,7 +43,27 @@ class ComicGridRoute extends StatelessWidget {
                     padding: EdgeInsets.all(2),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(10),
-                      child: comic.firstPage.page,
+                      child: Stack(
+                        children: <Widget>[
+                          Align(
+                            alignment: Alignment.center,
+                            child: comic.firstPage.page,
+                          ),
+                          Align(
+                            alignment: Alignment.bottomCenter,
+                            child: Container(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 5),
+                                color: Colors.grey,
+                                width: MediaQuery.of(context).size.width,
+                                child: Text(
+                                  path.basenameWithoutExtension(comic.filePath),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 10),
+                                )),
+                          )
+                        ],
+                      ),
                     ),
                     onPressed: () {
                       Navigator.push(
