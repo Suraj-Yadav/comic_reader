@@ -41,11 +41,14 @@ extension VectorOps on Offset {
 }
 
 class ComicViewerRoute extends StatefulWidget {
+  final List<Comic> comics;
+  final int index;
   final Comic comic;
   final PageController pageController;
 
-  ComicViewerRoute(this.comic)
-      : pageController = PageController(initialPage: 0);
+  ComicViewerRoute(this.comics, this.index)
+      : pageController = PageController(initialPage: 0),
+        comic = comics[index];
 
   @override
   State<StatefulWidget> createState() => _ComicViewerRouteState();
@@ -166,7 +169,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
               imageProvider: widget.comic.pages[index].page.image,
               filterQuality: FilterQuality.high,
               onTapDown: onTapDown,
-              basePosition: Alignment.topRight,
+              basePosition: Alignment.center,
               initialScale: _scale,
               minScale: PhotoViewComputedScale.contained,
               controller: _controllers[index])),
@@ -255,8 +258,8 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
     }
 
     // This is needed beacuse i haven't figured a way to specify initial location for a new page
-    startPanningAnimation(_viewport, _viewport.translate(0, 10));
-    startPanningAnimation(_viewport, _viewport.translate(0, -10));
+    // startPanningAnimation(_viewport, _viewport.translate(0, 10));
+    // startPanningAnimation(_viewport, _viewport.translate(0, -10));
 
     if (_pageChangeTimer != null) {
       _pageChangeTimer.cancel();
@@ -425,7 +428,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
   void onKeyChange(RawKeyEvent value) {
     if (!_isAnimating && value is RawKeyDownEvent) {
       if (value.data.logicalKey == LogicalKeyboardKey.escape) {
-        Navigator.pop(context);
+        // Navigator.pop(context);
       } else if (value.data.logicalKey == LogicalKeyboardKey.arrowRight) {
         moveViewport(Direction.NEXT);
       } else if (value.data.logicalKey == LogicalKeyboardKey.arrowLeft) {

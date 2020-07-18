@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 
 import 'package:comic_reader/src/comic.dart';
+import 'package:comic_reader/src/comic_gallery_route.dart';
 import 'package:comic_reader/src/comic_grid_route.dart';
 import 'package:file_chooser/file_chooser.dart';
 import 'package:file_picker/file_picker.dart';
@@ -27,8 +28,9 @@ class FilePickerRoute extends StatelessWidget {
               filePaths.addAll(
                   res.values.where((element) => element.endsWith('cbz')));
             } else {
-              final chosenFiles = await showOpenPanel(
-                  allowedFileTypes: ['cbz'], allowsMultipleSelection: true);
+              final chosenFiles = await showOpenPanel(allowedFileTypes: [
+                FileTypeFilterGroup(fileExtensions: ['cbz'])
+              ], allowsMultipleSelection: true);
               if (!chosenFiles.canceled && chosenFiles.paths.length > 0) {
                 filePaths.addAll(chosenFiles.paths);
               }
@@ -38,7 +40,7 @@ class FilePickerRoute extends StatelessWidget {
               Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ComicGridRoute(
+                    builder: (context) => ComicGalleryRoute(
                         filePaths.map((filePath) => Comic(filePath)).toList()),
                   ));
             }
