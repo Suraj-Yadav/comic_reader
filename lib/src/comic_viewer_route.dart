@@ -428,7 +428,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
   void onKeyChange(RawKeyEvent value) {
     if (!_isAnimating && value is RawKeyDownEvent) {
       if (value.data.logicalKey == LogicalKeyboardKey.escape) {
-        // Navigator.pop(context);
+        Navigator.pop(context);
       } else if (value.data.logicalKey == LogicalKeyboardKey.arrowRight) {
         moveViewport(Direction.NEXT);
       } else if (value.data.logicalKey == LogicalKeyboardKey.arrowLeft) {
