@@ -14,6 +14,7 @@ var logger = Logger(
 Directory CACHE_DIRECTORY;
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   final shortcut = Map.of(WidgetsApp.defaultShortcuts)
     ..remove(LogicalKeySet(LogicalKeyboardKey.escape))
     ..remove(LogicalKeySet(LogicalKeyboardKey.enter));
