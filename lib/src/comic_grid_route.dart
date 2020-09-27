@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:comic_reader/src/comic_viewer_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:window_size/window_size.dart' as window_size;
 import 'package:path/path.dart' as path;
+import 'package:window_size/window_size.dart' as window_size;
 
 import 'comic.dart';
 
@@ -35,7 +35,7 @@ class ComicGridRoute extends StatelessWidget {
               children: [
                 Align(
                   alignment: Alignment.center,
-                  child: comic.firstPage.page,
+                  child: Image.file(comic.firstPage.imgFile),
                 ),
                 Align(
                   alignment: Alignment.bottomCenter,
@@ -44,7 +44,7 @@ class ComicGridRoute extends StatelessWidget {
                       color: Colors.grey,
                       width: MediaQuery.of(context).size.width,
                       child: Text(
-                        path.basenameWithoutExtension(comic.filePath),
+                        path.basenameWithoutExtension(comic.archiveFilePath),
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 10),
                       )),
