@@ -1,9 +1,6 @@
 import 'dart:io';
-import 'package:collection/collection.dart';
 
-import 'package:comic_reader/src/comic.dart';
 import 'package:comic_reader/src/comic_gallery_route.dart';
-import 'package:comic_reader/src/comic_grid_route.dart';
 import 'package:file_chooser/file_chooser.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -35,15 +32,16 @@ class FilePickerRoute extends StatelessWidget {
                 filePaths.addAll(chosenFiles.paths);
               }
             }
-            if (filePaths.isNotEmpty) {
-              filePaths.sort(compareAsciiLowerCaseNatural);
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ComicGalleryRoute(
-                        filePaths.map((filePath) => Comic(filePath)).toList()),
-                  ));
+
+            if (filePaths.isEmpty) {
+              return;
             }
+
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ComicGalleryRoute(filePaths),
+                ));
           },
           child: Text('Open file picker'),
         ),
