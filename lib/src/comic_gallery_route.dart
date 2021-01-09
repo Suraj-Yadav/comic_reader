@@ -121,9 +121,6 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
                     actions: <Type, Action<Intent>>{
                       KeyIntent: CallbackAction<KeyIntent>(
                         onInvoke: (KeyIntent intent) {
-                          print('\n' +
-                              StackTrace.current.toString().split('\n')[0] +
-                              '\n intent: ${intent.direction}\n\n');
                           if (intent.direction == Navigation.PREVIOUS_COMIC) {
                             _controller.previousPage(
                                 duration: const Duration(
@@ -143,7 +140,7 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
                       )
                     },
                     child: Scaffold(
-                      backgroundColor: Colors.transparent,
+                      backgroundColor: Colors.black ,
                       body: Stack(
                         children: [
                           PageView.builder(
@@ -187,8 +184,12 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
                             alignment: Alignment.bottomCenter,
                             child: Text(
                               path.basenameWithoutExtension(
+                                      _comics[_currentPageValue.round()]
+                                          .archiveFilePath) +
+                                  "\n" +
                                   _comics[_currentPageValue.round()]
-                                      .archiveFilePath),
+                                      .numberOfPages
+                                      .toString(),
                               textAlign: TextAlign.center,
                               style:
                                   TextStyle(fontSize: 20, color: Colors.white),

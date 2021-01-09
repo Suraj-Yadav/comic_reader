@@ -25,6 +25,7 @@ Future<ComicPage> savePage(String filePath, List<int> bytes) async {
 class Comic {
   final String archiveFilePath;
   ComicPage firstPage;
+  int numberOfPages;
 
   Comic({this.archiveFilePath});
 
@@ -35,6 +36,8 @@ class Comic {
 
     final extractedCache = Directory(path.join(
         CACHE_DIRECTORY.path, path.basenameWithoutExtension(archiveFilePath)));
+
+    numberOfPages = archive.files.length;
 
     for (var file in archive.files) {
       if (!file.isFile) {

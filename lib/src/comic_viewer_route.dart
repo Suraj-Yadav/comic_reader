@@ -96,6 +96,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
         path.basenameWithoutExtension(widget.comic.archiveFilePath)));
 
     closeComic();
+    double lastProgress = 0;
 
     logger.d("Create comic page cache folder");
     await comicCache.create(recursive: true);
@@ -112,6 +113,10 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
         _pages.add(await savePage(
             path.join(comicCache.path, path.basename(file.name)),
             file.content));
+      }
+      if ((_pages.length / widget.comic.numberOfPages) - lastProgress > 0.01) {
+        setState(() {});
+        lastProgress = _pages.length / widget.comic.numberOfPages;
       }
       logger.d("Page Lengh: ${_pages.length}");
     }
@@ -273,7 +278,6 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
           }
 
           SystemChrome.setEnabledSystemUIOverlays([SystemUiOverlay.bottom]);
-          logger.d("sdfdf");
           return Shortcuts(
             shortcuts: <LogicalKeySet, Intent>{
               LogicalKeySet(LogicalKeyboardKey.arrowLeft):
@@ -287,9 +291,6 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
               actions: <Type, Action<Intent>>{
                 KeyIntent:
                     CallbackAction<KeyIntent>(onInvoke: (KeyIntent intent) {
-                  print('\n' +
-                      StackTrace.current.toString().split('\n')[0] +
-                      '\n intent: ${intent.direction}\n\n');
                   if (!_isAnimating &&
                       (intent.direction == Navigation.PREVIOUS_PAGE ||
                           intent.direction == Navigation.NEXT_PAGE)) {
@@ -309,9 +310,13 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
             // Stack(children: stackChilds))),
           );
         } else {
+          logger.d(
+              "Progress ${_pages.length} ${widget.comic.numberOfPages} ${_pages.length / widget.comic.numberOfPages}");
           return Center(
             child: SizedBox(
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(
+                value: _pages.length / widget.comic.numberOfPages,
+              ),
               height: 60,
               width: 60,
             ),
