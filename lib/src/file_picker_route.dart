@@ -17,7 +17,8 @@ class FilePickerRoute extends StatelessWidget {
         title: Text("Choose Files"),
       ),
       body: Center(
-        child: RaisedButton(
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(padding: EdgeInsets.all(20)),
           onPressed: () async {
             final List<String> filePaths = [];
             if (Platform.isAndroid || Platform.isIOS) {
