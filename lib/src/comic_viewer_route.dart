@@ -12,7 +12,6 @@ import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
-import 'package:window_size/window_size.dart' as window_size;
 
 const PAGE_CHANGE_DURATION = 500;
 const PAN_DURATION = 1000;
@@ -203,10 +202,10 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
       builder: (context, AsyncSnapshot<bool> snapshot) {
         logger.d({"snapshot.hasData": snapshot.hasData});
         if (snapshot.hasData) {
-          if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-            window_size.setWindowTitle(
-                path.basenameWithoutExtension(widget.comic.archiveFilePath));
-          }
+          // if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+          //   window_size.setWindowTitle(
+          //       path.basenameWithoutExtension(widget.comic.archiveFilePath));
+          // }
           if (_viewport != null) {
             final screenSize = MediaQuery.of(context).size;
             final imageSize = _pages[_pageIndex].size;

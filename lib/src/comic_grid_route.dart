@@ -1,10 +1,7 @@
-import 'dart:io';
-
 import 'package:comic_reader/src/comic_viewer_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
-import 'package:window_size/window_size.dart' as window_size;
 
 import 'comic.dart';
 
@@ -15,9 +12,9 @@ class ComicGridRoute extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-      window_size.setWindowTitle('${_comics.length} comics');
-    }
+    // if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+    //   window_size.setWindowTitle('${_comics.length} comics');
+    // }
     final count =
         MediaQuery.of(context).orientation == Orientation.landscape ? 5 : 2;
     final List<Widget> children = [];
