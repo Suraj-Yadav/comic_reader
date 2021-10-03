@@ -14,9 +14,9 @@ jobs:
       - run: flutter config --enable-macos-desktop
       - run: flutter precache
       - run: flutter build macos --release
-      - run: zip -r ComicReader.zip "build/macos/Build/Products/Release/Comic Reader.app"
+      - run: (cd build/macos/Build/Products/Release/ && zip -r ComicReader.zip "Comic Reader.app")
       - uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "latest"
-          files: ComicReader.zip
+          files: build/macos/Build/Products/Release/ComicReader.zip
