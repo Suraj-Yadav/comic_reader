@@ -13,5 +13,5 @@ jobs:
           flutter-version: "2.5.2"
       - run: flutter config --enable-macos-desktop
       - run: flutter precache
-      - run: arch -x86_64 flutter build macos
+      - run: flutter build macos --release
       - run: ls
