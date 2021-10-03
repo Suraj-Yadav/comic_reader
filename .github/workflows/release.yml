@@ -1,0 +1,26 @@
+name: Build Release
+on: 
+  push:
+    branches:
+      - master
+jobs:
+  build-release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: "12.x"
+      - uses: subosito/flutter-action@v1
+        with:
+          flutter-version: "2.5.2"
+      - run: flutter config --enable-macos-desktop
+      - run: flutter precache
+      - run: flutter build macos --release
+      - run: (cd build/macos/Build/Products/Release/ && zip -r ComicReader.zip "Comic Reader.app")
+      - uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: false
+          automatic_release_tag: "latest"
+          files: build/macos/Build/Products/Release/ComicReader.zip

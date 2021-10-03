@@ -27,6 +27,7 @@ enum Navigation {
   BACK, // Go back one route
   NEXT_PAGE, // Move to next page
   PREVIOUS_PAGE, // Move to previous page
+  SWITCH_SCROLL,
   NO_OP
 }
 
@@ -85,6 +86,8 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
   Rect _viewport;
   double _scale;
   Timer _pageChangeTimer;
+
+  bool verticalScroll = false;
 
   Future<bool> _loader;
 
@@ -215,6 +218,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
 
           final List<Widget> stackChilds = [];
           stackChilds.add(PhotoViewGallery(
+            scrollDirection: verticalScroll ? Axis.vertical : Axis.horizontal,
             backgroundDecoration: BoxDecoration(color: Colors.transparent),
             scrollPhysics: BouncingScrollPhysics(),
             onPageChanged: onPageChanged,
@@ -286,6 +290,8 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
                   KeyIntent(Navigation.NEXT_PAGE),
               LogicalKeySet(LogicalKeyboardKey.escape):
                   KeyIntent(Navigation.BACK),
+              LogicalKeySet(LogicalKeyboardKey.keyR):
+                  KeyIntent(Navigation.SWITCH_SCROLL),
             },
             child: Actions(
               actions: <Type, Action<Intent>>{
@@ -297,6 +303,8 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
                     moveViewport(intent.direction);
                   } else if (intent.direction == Navigation.BACK) {
                     Navigator.pop(context);
+                  } else if (intent.direction == Navigation.SWITCH_SCROLL) {
+                    verticalScroll = !verticalScroll;
                   }
                   return intent;
                 })
