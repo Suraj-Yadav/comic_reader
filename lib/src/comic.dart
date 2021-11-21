@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
+import 'package:collection/collection.dart';
 import 'package:comic_reader/main.dart';
 import 'package:flutter/material.dart';
 import 'package:mime/mime.dart';
@@ -39,13 +40,15 @@ class Comic {
 
     numberOfPages = archive.files.length;
 
+    archive.files.sort((a, b) => compareAsciiLowerCaseNatural(a.name, b.name));
+
     for (var file in archive.files) {
       if (!file.isFile) {
         continue;
       }
       final mimeType = lookupMimeType(file.name, headerBytes: file.content);
 
-      if (mimeType.startsWith("image/")) {
+      if (mimeType != null && mimeType.startsWith("image/")) {
         firstPage = await savePage(
             extractedCache.path + "_Cover" + path.extension(file.name),
             file.content);

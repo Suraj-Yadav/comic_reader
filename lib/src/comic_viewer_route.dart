@@ -4,6 +4,7 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:archive/archive.dart';
+import 'package:collection/collection.dart';
 import 'package:comic_reader/main.dart';
 import 'package:comic_reader/src/comic.dart';
 import 'package:flutter/material.dart';
@@ -104,25 +105,33 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
     logger.d("Create comic page cache folder");
     await comicCache.create(recursive: true);
 
-    final archive = ZipDecoder()
-        .decodeBytes(await File(widget.comic.archiveFilePath).readAsBytes());
-
-    for (var file in archive.files) {
-      if (!file.isFile) {
-        continue;
+    try {
+      final archive = ZipDecoder()
+          .decodeBytes(await File(widget.comic.archiveFilePath).readAsBytes());
+      for (var file in archive.files) {
+        if (!file.isFile) {
+          continue;
+        }
+        final mimeType = lookupMimeType(file.name, headerBytes: file.content);
+        if (mimeType != null && mimeType.startsWith("image/")) {
+          _pages.add(await savePage(
+              path.join(comicCache.path, path.basename(file.name)),
+              file.content));
+        } else {
+          logger.w("File with null mimeType: ${file.name}");
+        }
+        if ((_pages.length / widget.comic.numberOfPages) - lastProgress >
+            0.01) {
+          setState(() {});
+          lastProgress = _pages.length / widget.comic.numberOfPages;
+        }
       }
-      final mimeType = lookupMimeType(file.name, headerBytes: file.content);
-      if (mimeType.startsWith("image/")) {
-        _pages.add(await savePage(
-            path.join(comicCache.path, path.basename(file.name)),
-            file.content));
-      }
-      if ((_pages.length / widget.comic.numberOfPages) - lastProgress > 0.01) {
-        setState(() {});
-        lastProgress = _pages.length / widget.comic.numberOfPages;
-      }
-      logger.d("Page Lengh: ${_pages.length}");
+    } catch (e) {
+      logger.e("Error while opening comic", e);
     }
+
+    _pages.sort(
+        (a, b) => compareAsciiLowerCaseNatural(a.imgFile.path, b.imgFile.path));
 
     for (var i = 0; i < _pages.length; i++) {
       _controllers.add(PhotoViewController()
@@ -166,8 +175,8 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
   }
 
   void viewPortListener(int pageIndex, PhotoViewControllerValue value) {
-    logger.d("Calling viewPortListener");
-    logger.d({"pageIndex": pageIndex});
+    // logger.d("Calling viewPortListener");
+    // logger.d({"pageIndex": pageIndex});
     if (pageIndex == _pageIndex &&
         !_isAnimating &&
         value.position != null &&
@@ -201,7 +210,6 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
     return FutureBuilder(
       future: _loader,
       builder: (context, AsyncSnapshot<bool> snapshot) {
-        logger.d({"snapshot.hasData": snapshot.hasData});
         if (snapshot.hasData) {
           if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
             window_size.setWindowTitle(
@@ -318,8 +326,6 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
             // Stack(children: stackChilds))),
           );
         } else {
-          logger.d(
-              "Progress ${_pages.length} ${widget.comic.numberOfPages} ${_pages.length / widget.comic.numberOfPages}");
           return Center(
             child: SizedBox(
               child: CircularProgressIndicator(

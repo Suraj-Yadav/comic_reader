@@ -45,7 +45,34 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
         widget.originalFilePaths.map((e) => Comic(archiveFilePath: e)).toList();
 
     for (var comic in comics) {
-      await comic.loadComicPreview();
+      try {
+        await comic.loadComicPreview();
+      } catch (e) {
+        await showDialog(
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                title: const Text('Unable to open comic'),
+                content: SingleChildScrollView(
+                  child: ListBody(
+                    children: <Widget>[
+                      Text(comic.archiveFilePath),
+                      Text(e.toString()),
+                    ],
+                  ),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    child: const Text('Ok'),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      return false;
+                    },
+                  ),
+                ],
+              );
+            });
+      }
     }
 
     _comics = comics;
@@ -140,7 +167,7 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
                       )
                     },
                     child: Scaffold(
-                      backgroundColor: Colors.black ,
+                      backgroundColor: Colors.black,
                       body: Stack(
                         children: [
                           PageView.builder(
