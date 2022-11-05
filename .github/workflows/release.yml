@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - master
-      - feature/windows-build
 jobs:
   build-release-macos:
     runs-on: macos-latest
