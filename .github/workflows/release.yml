@@ -1,5 +1,5 @@
 name: Build Release
-on: 
+on:
   push:
     branches:
       - master
@@ -30,8 +30,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: subosito/flutter-action@v2
-         with:
-            flutter-version: "3.3.7"
+        with:
+          flutter-version: "3.3.7"
       - run: flutter config --enable-windows-desktop
       - run: flutter precache
       - run: flutter build windows --release
