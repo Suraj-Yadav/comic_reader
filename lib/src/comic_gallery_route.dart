@@ -173,9 +173,11 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
                           PageView.builder(
                             // physics: ClampingScrollPhysics(),
                             itemBuilder: (context, position) {
-                              return RaisedButton(
+                              return ElevatedButton(
                                 autofocus: false,
-                                color: Colors.transparent,
+                                style: ElevatedButton.styleFrom(
+                                  primary: Colors.transparent,
+                                ),
                                 onPressed: () {
                                   Navigator.push(
                                       context,

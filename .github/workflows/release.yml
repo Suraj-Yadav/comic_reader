@@ -3,8 +3,9 @@ on:
   push:
     branches:
       - master
+      - feature/windows-build
 jobs:
-  build-release:
+  build-release-macos:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v2
@@ -13,7 +14,7 @@ jobs:
           java-version: "12.x"
       - uses: subosito/flutter-action@v1
         with:
-          flutter-version: "2.5.2"
+          flutter-version: "3.3.7"
       - run: flutter config --enable-macos-desktop
       - run: flutter precache
       - run: flutter build macos --release
@@ -24,3 +25,20 @@ jobs:
           prerelease: false
           automatic_release_tag: "latest"
           files: build/macos/Build/Products/Release/ComicReader.zip
+  build-release-windows:
+  runs-on: windows-latest
+   steps:
+      - uses: actions/checkout@v3
+      - uses: subosito/flutter-action@v2
+         with:
+            flutter-version: "3.3.7"
+      - run: flutter config --enable-windows-desktop
+      - run: flutter precache
+      - run: flutter build windows --release
+      - run: (cd build/windows/runner/Release/ && zip -r ComicReaderWin.zip .)
+      - uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: false
+          automatic_release_tag: "latest"
+          files: build/windows/runner/Release/ComicReaderWin.zip
