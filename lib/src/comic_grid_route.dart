@@ -25,10 +25,10 @@ class ComicGridRoute extends StatelessWidget {
       final comic = _comics[index];
       children.add(ClipRRect(
         borderRadius: BorderRadius.circular(10),
-        child: RaisedButton(
-          color: Colors.white,
-          hoverColor: Colors.grey,
-          padding: EdgeInsets.all(2),
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            primary: Colors.white,
+          ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: Stack(

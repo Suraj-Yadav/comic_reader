@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:comic_reader/src/comic_gallery_route.dart';
-import 'package:file_chooser/file_chooser.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:window_size/window_size.dart' as window_size;
@@ -21,18 +20,9 @@ class FilePickerRoute extends StatelessWidget {
           style: ElevatedButton.styleFrom(padding: EdgeInsets.all(20)),
           onPressed: () async {
             final List<String> filePaths = [];
-            if (Platform.isAndroid || Platform.isIOS) {
-              var res = await FilePicker.getMultiFilePath();
-              filePaths.addAll(
-                  res.values.where((element) => element.endsWith('cbz')));
-            } else {
-              final chosenFiles = await showOpenPanel(allowedFileTypes: [
-                FileTypeFilterGroup(fileExtensions: ['cbz'])
-              ], allowsMultipleSelection: true);
-              if (!chosenFiles.canceled && chosenFiles.paths.length > 0) {
-                filePaths.addAll(chosenFiles.paths);
-              }
-            }
+            var res = await FilePicker.platform.pickFiles(allowMultiple: true);
+            filePaths
+                .addAll(res.paths.where((element) => element.endsWith('cbz')));
 
             if (filePaths.isEmpty) {
               return;
