@@ -8,12 +8,10 @@ jobs:
   build-release-macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v1
+      - uses: actions/checkout@v3
+      - uses: subosito/flutter-action@v2
         with:
-          java-version: "12.x"
-      - uses: subosito/flutter-action@v1
-        with:
+          architecture: x64
           flutter-version: "3.3.7"
       - run: flutter config --enable-macos-desktop
       - run: flutter precache
@@ -35,10 +33,10 @@ jobs:
       - run: flutter config --enable-windows-desktop
       - run: flutter precache
       - run: flutter build windows --release
-      - run: (cd build/windows/runner/Release/ && zip -r ComicReaderWin.zip .)
+      - run: 7z a ComicReaderWin.zip build/windows/runner/Release/*
       - uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
           automatic_release_tag: "latest"
-          files: build/windows/runner/Release/ComicReaderWin.zip
+          files: ComicReaderWin.zip
