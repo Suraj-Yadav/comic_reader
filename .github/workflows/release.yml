@@ -26,8 +26,8 @@ jobs:
           automatic_release_tag: "latest"
           files: build/macos/Build/Products/Release/ComicReader.zip
   build-release-windows:
-  runs-on: windows-latest
-   steps:
+    runs-on: windows-latest
+    steps:
       - uses: actions/checkout@v3
       - uses: subosito/flutter-action@v2
          with:
