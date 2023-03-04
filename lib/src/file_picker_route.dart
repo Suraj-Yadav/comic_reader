@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:window_size/window_size.dart' as window_size;
 
 class FilePickerRoute extends StatelessWidget {
+  const FilePickerRoute({Key key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
@@ -13,11 +15,11 @@ class FilePickerRoute extends StatelessWidget {
     }
     return Scaffold(
       appBar: AppBar(
-        title: Text("Choose Files"),
+        title: const Text("Choose Files"),
       ),
       body: Center(
         child: ElevatedButton(
-          style: ElevatedButton.styleFrom(padding: EdgeInsets.all(20)),
+          style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20)),
           onPressed: () async {
             final List<String> filePaths = [];
             var res = await FilePicker.platform.pickFiles(allowMultiple: true);
@@ -34,7 +36,7 @@ class FilePickerRoute extends StatelessWidget {
                   builder: (context) => ComicGalleryRoute(filePaths),
                 ));
           },
-          child: Text('Open file picker'),
+          child: const Text('Open file picker'),
         ),
       ),
     );

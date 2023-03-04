@@ -4,6 +4,8 @@ import 'package:archive/archive_io.dart';
 import 'package:collection/collection.dart';
 import 'package:comic_reader/main.dart';
 import 'package:flutter/material.dart';
+import 'package:image_size_getter/file_input.dart' as image_size_getter;
+import 'package:image_size_getter/image_size_getter.dart' as image_size_getter;
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
 
@@ -14,13 +16,16 @@ class ComicPage {
   ComicPage(this.imgFile, this.size);
 }
 
-Future<ComicPage> savePage(String filePath, List<int> bytes) async {
+ComicPage savePage(String filePath, ArchiveFile file) {
+  final outputStream = OutputFileStream(filePath);
+  file.writeContent(outputStream);
+  outputStream.close();
+
   final imageFile = File(filePath);
-  await imageFile.create(recursive: true);
-  await imageFile.writeAsBytes(bytes, flush: true);
-  final decodedImage = await decodeImageFromList(bytes);
-  return ComicPage(imageFile,
-      Size(decodedImage.width.toDouble(), decodedImage.height.toDouble()));
+
+  final s = image_size_getter.ImageSizeGetter.getSize(
+      image_size_getter.FileInput(imageFile));
+  return ComicPage(imageFile, Size(s.width.toDouble(), s.height.toDouble()));
 }
 
 class Comic {
@@ -30,13 +35,12 @@ class Comic {
 
   Comic({this.archiveFilePath});
 
-  Future<bool> loadComicPreview() async {
+  bool loadComicPreview() {
     bool success = true;
-    final archive =
-        ZipDecoder().decodeBytes(await File(archiveFilePath).readAsBytes());
+    final archive = ZipDecoder().decodeBuffer(InputFileStream(archiveFilePath));
 
     final extractedCache = Directory(path.join(
-        CACHE_DIRECTORY.path, path.basenameWithoutExtension(archiveFilePath)));
+        cacheDirectory.path, path.basenameWithoutExtension(archiveFilePath)));
 
     numberOfPages = archive.files.length;
 
@@ -49,9 +53,8 @@ class Comic {
       final mimeType = lookupMimeType(file.name, headerBytes: file.content);
 
       if (mimeType != null && mimeType.startsWith("image/")) {
-        firstPage = await savePage(
-            extractedCache.path + "_Cover" + path.extension(file.name),
-            file.content);
+        firstPage = savePage(
+            "${extractedCache.path}_Cover${path.extension(file.name)}", file);
         break;
       }
     }

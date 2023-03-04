@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:comic_reader/src/comic_viewer_route.dart';
 import 'package:comic_reader/src/file_picker_route.dart';
+import 'package:path/path.dart' as path;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
@@ -11,7 +12,7 @@ var logger = Logger(
   printer: PrettyPrinter(colors: true, lineLength: 100, printTime: true),
 );
 
-Directory CACHE_DIRECTORY;
+Directory cacheDirectory;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,14 +20,14 @@ void main() async {
     ..remove(LogicalKeySet(LogicalKeyboardKey.escape))
     ..remove(LogicalKeySet(LogicalKeyboardKey.enter));
 
-  CACHE_DIRECTORY =
-      new Directory((await getTemporaryDirectory()).path + "/comicReaderCache");
+  cacheDirectory = Directory(
+      path.join((await getTemporaryDirectory()).path, "comicReaderCache"));
 
   runApp(MaterialApp(
     title: 'Comic Reader',
     theme: ThemeData.dark(),
     darkTheme: ThemeData.dark(),
-    home: FilePickerRoute(),
+    home: const FilePickerRoute(),
     shortcuts: shortcut,
   ));
 }

@@ -1,9 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
-import 'dart:ui';
 
-import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 import 'package:collection/collection.dart';
 import 'package:comic_reader/main.dart';
 import 'package:comic_reader/src/comic.dart';
@@ -13,42 +12,44 @@ import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
+import 'package:prompt_dialog/prompt_dialog.dart';
 import 'package:window_size/window_size.dart' as window_size;
 
-const PAGE_CHANGE_DURATION = 500;
-const PAN_DURATION = 1000;
+const pageChangeDuration = 500;
+const panDuration = 1000;
 
-const DEBUG = false;
+const debug = false;
 
-const EPSILON = 0.000001;
+const epsilon = 0.000001;
 
 enum Navigation {
-  NEXT_COMIC, // Move to next Comic
-  PREVIOUS_COMIC, // Move to previous Comic
-  BACK, // Go back one route
-  NEXT_PAGE, // Move to next page
-  PREVIOUS_PAGE, // Move to previous page
-  SWITCH_SCROLL,
-  NO_OP
+  nextComic, // Move to next Comic
+  previousComic, // Move to previous Comic
+  back, // Go back one route
+  nextPage, // Move to next page
+  previousPage, // Move to previous page
+  switchScroll,
+  jumpToPage,
+  noOp
 }
 
 extension FuzzyCompare on double {
   bool lessThan(double that) {
-    return this < (that - max(max(that.abs(), this.abs()), EPSILON) * 0.01);
+    return this < (that - max(max(that.abs(), abs()), epsilon) * 0.01);
   }
 
   bool greaterThan(double that) {
-    return this > (that + max(max(that.abs(), this.abs()), EPSILON) * 0.01);
+    return this > (that + max(max(that.abs(), abs()), epsilon) * 0.01);
   }
 
   bool almostEqual(double that) {
-    return (this - that).abs() < EPSILON;
+    return (this - that).abs() < epsilon;
   }
 }
 
 extension VectorOps on Offset {
   double customDot(Offset other) {
-    return this.dx.abs() * other.dx.abs() + this.dy.abs() * other.dx.abs();
+    return dx.abs() * other.dx.abs() + dy.abs() * other.dx.abs();
   }
 }
 
@@ -58,9 +59,10 @@ class ComicViewerRoute extends StatefulWidget {
   final Comic comic;
   final PageController pageController;
 
-  ComicViewerRoute(this.comics, this.index)
+  ComicViewerRoute(this.comics, this.index, {Key key})
       : pageController = PageController(initialPage: 0),
-        comic = comics[index];
+        comic = comics[index],
+        super(key: key);
 
   @override
   State<StatefulWidget> createState() => _ComicViewerRouteState();
@@ -71,10 +73,10 @@ extension FuzzyCompareRect on Rect {
     if (identical(this, other)) return true;
     if (runtimeType != other.runtimeType) return false;
     return other is Rect &&
-        other.left.almostEqual(this.left) &&
-        other.top.almostEqual(this.top) &&
-        other.right.almostEqual(this.right) &&
-        other.bottom.almostEqual(this.bottom);
+        other.left.almostEqual(left) &&
+        other.top.almostEqual(top) &&
+        other.right.almostEqual(right) &&
+        other.bottom.almostEqual(bottom);
   }
 }
 
@@ -92,31 +94,30 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
 
   Future<bool> _loader;
 
-  List<ComicPage> _pages = [];
-  List<PhotoViewControllerBase> _controllers = [];
+  final List<ComicPage> _pages = [];
+  final List<PhotoViewControllerBase> _controllers = [];
 
   Future<bool> openComic() async {
-    final comicCache = Directory(path.join(CACHE_DIRECTORY.path,
+    final comicCache = Directory(path.join(cacheDirectory.path,
         path.basenameWithoutExtension(widget.comic.archiveFilePath)));
 
     closeComic();
     double lastProgress = 0;
 
     logger.d("Create comic page cache folder");
-    await comicCache.create(recursive: true);
+    comicCache.createSync(recursive: true);
 
     try {
       final archive = ZipDecoder()
-          .decodeBytes(await File(widget.comic.archiveFilePath).readAsBytes());
+          .decodeBuffer(InputFileStream(widget.comic.archiveFilePath));
       for (var file in archive.files) {
         if (!file.isFile) {
           continue;
         }
         final mimeType = lookupMimeType(file.name, headerBytes: file.content);
         if (mimeType != null && mimeType.startsWith("image/")) {
-          _pages.add(await savePage(
-              path.join(comicCache.path, path.basename(file.name)),
-              file.content));
+          _pages.add(savePage(
+              path.join(comicCache.path, path.basename(file.name)), file));
         } else {
           logger.w("File with null mimeType: ${file.name}");
         }
@@ -146,12 +147,12 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
   Future<bool> closeComic() async {
     _pages.clear();
     _controllers.clear();
-    final comicCache = Directory(path.join(CACHE_DIRECTORY.path,
+    final comicCache = Directory(path.join(cacheDirectory.path,
         path.basenameWithoutExtension(widget.comic.archiveFilePath)));
 
     if (comicCache.existsSync()) {
       logger.d("Deleting existing comic page cache folder");
-      await comicCache.delete(recursive: true);
+      comicCache.deleteSync(recursive: true);
     }
 
     return false;
@@ -166,7 +167,9 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
 
   @override
   void dispose() {
-    _controllers.forEach((controller) => controller.dispose());
+    for (var controller in _controllers) {
+      controller.dispose();
+    }
     if (_animationController != null) {
       _animationController.dispose();
     }
@@ -224,11 +227,12 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
                 position: positionAndScale.key, scale: positionAndScale.value);
           }
 
-          final List<Widget> stackChilds = [];
-          stackChilds.add(PhotoViewGallery(
+          final List<Widget> stackChildren = [];
+          stackChildren.add(PhotoViewGallery(
             scrollDirection: verticalScroll ? Axis.vertical : Axis.horizontal,
-            backgroundDecoration: BoxDecoration(color: Colors.transparent),
-            scrollPhysics: BouncingScrollPhysics(),
+            backgroundDecoration:
+                const BoxDecoration(color: Colors.transparent),
+            scrollPhysics: const BouncingScrollPhysics(),
             onPageChanged: onPageChanged,
             pageController: widget.pageController,
             pageOptions: List.generate(
@@ -242,28 +246,26 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
                     minScale: PhotoViewComputedScale.contained,
                     controller: _controllers[index])),
           ));
-          stackChilds.add(Align(
+          stackChildren.add(Align(
               alignment: Alignment.bottomCenter,
               child: ClipRRect(
                   borderRadius:
-                      BorderRadius.vertical(top: const Radius.circular(10)),
+                      const BorderRadius.vertical(top: Radius.circular(10)),
                   child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 5),
                       color: Colors.grey,
                       child: Text(
-                        (_pageIndex + 1).toString() +
-                            '/' +
-                            _pages.length.toString(),
-                        style: TextStyle(fontSize: 20),
+                        '${_pageIndex + 1}/${_pages.length}',
+                        style: const TextStyle(fontSize: 20),
                       )))));
-          if (DEBUG) {
+          if (debug) {
             final currentImage = _pages[_pageIndex];
             if (currentImage.size != null && _viewport != null) {
-              stackChilds.add(Align(
+              stackChildren.add(Align(
                   alignment: Alignment.bottomRight,
                   child: Opacity(
                       opacity: 0.5,
-                      child: Container(
+                      child: SizedBox(
                           width: 150,
                           height: currentImage.size.height *
                               (150 / currentImage.size.width),
@@ -289,30 +291,39 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
             }
           }
 
-          SystemChrome.setEnabledSystemUIOverlays([SystemUiOverlay.bottom]);
+          SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
+              overlays: [SystemUiOverlay.bottom]);
           return Shortcuts(
-            shortcuts: <LogicalKeySet, Intent>{
-              LogicalKeySet(LogicalKeyboardKey.arrowLeft):
-                  KeyIntent(Navigation.PREVIOUS_PAGE),
-              LogicalKeySet(LogicalKeyboardKey.arrowRight):
-                  KeyIntent(Navigation.NEXT_PAGE),
-              LogicalKeySet(LogicalKeyboardKey.escape):
-                  KeyIntent(Navigation.BACK),
-              LogicalKeySet(LogicalKeyboardKey.keyR):
-                  KeyIntent(Navigation.SWITCH_SCROLL),
+            shortcuts: const <SingleActivator, Intent>{
+              SingleActivator(LogicalKeyboardKey.arrowLeft):
+                  KeyIntent(Navigation.previousPage),
+              SingleActivator(LogicalKeyboardKey.arrowRight):
+                  KeyIntent(Navigation.nextPage),
+              SingleActivator(LogicalKeyboardKey.escape):
+                  KeyIntent(Navigation.back),
+              SingleActivator(LogicalKeyboardKey.keyR, control: true):
+                  KeyIntent(Navigation.switchScroll),
+              SingleActivator(LogicalKeyboardKey.keyG, control: true):
+                  KeyIntent(Navigation.jumpToPage),
             },
             child: Actions(
               actions: <Type, Action<Intent>>{
-                KeyIntent:
-                    CallbackAction<KeyIntent>(onInvoke: (KeyIntent intent) {
+                KeyIntent: CallbackAction<KeyIntent>(
+                    onInvoke: (KeyIntent intent) async {
                   if (!_isAnimating &&
-                      (intent.direction == Navigation.PREVIOUS_PAGE ||
-                          intent.direction == Navigation.NEXT_PAGE)) {
-                    moveViewport(intent.direction);
-                  } else if (intent.direction == Navigation.BACK) {
+                      (intent.direction == Navigation.previousPage ||
+                          intent.direction == Navigation.nextPage)) {
+                    moveViewport(intent.direction, 0);
+                  } else if (intent.direction == Navigation.back) {
                     Navigator.pop(context);
-                  } else if (intent.direction == Navigation.SWITCH_SCROLL) {
+                  } else if (intent.direction == Navigation.switchScroll) {
                     verticalScroll = !verticalScroll;
+                  } else if (intent.direction == Navigation.jumpToPage) {
+                    String pageNumberStr = await prompt(
+                      context,
+                      title: const Text('Enter Page Number'),
+                    );
+                    moveViewport(intent.direction, int.tryParse(pageNumberStr));
                   }
                   return intent;
                 })
@@ -320,121 +331,34 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
               child: Focus(
                   autofocus: true,
                   child: Scaffold(
-                      backgroundColor: Color.fromRGBO(25, 25, 25, 1),
-                      body: Stack(children: stackChilds))),
+                      backgroundColor: const Color.fromRGBO(25, 25, 25, 1),
+                      body: Stack(children: stackChildren))),
             ),
-            // Stack(children: stackChilds))),
+            // Stack(children: stackChildren))),
           );
         } else {
           return Center(
             child: SizedBox(
+              height: 60,
+              width: 60,
               child: CircularProgressIndicator(
                 value: _pages.length / widget.comic.numberOfPages,
               ),
-              height: 60,
-              width: 60,
             ),
           );
         }
       },
     );
-
-    // if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-    //   window_size.setWindowTitle(
-    //       path.basenameWithoutExtension(widget.comic.archiveFilePath));
-    // }
-    // if (_viewport != null) {
-    //   final screenSize = MediaQuery.of(context).size;
-    //   final imageSize = widget.comic.pages[_pageIndex].size;
-    //   final positionAndScale =
-    //       computePositionAndScale(screenSize, imageSize, _viewport);
-    //   _controllers[_pageIndex].updateMultiple(
-    //       position: positionAndScale.key, scale: positionAndScale.value);
-    // }
-
-    // final List<Widget> stackChilds = [];
-    // stackChilds.add(PhotoViewGallery(
-    //   backgroundDecoration: BoxDecoration(color: Colors.transparent),
-    //   scrollPhysics: BouncingScrollPhysics(),
-    //   onPageChanged: onPageChanged,
-    //   pageController: widget.pageController,
-    //   pageOptions: List.generate(
-    //       widget.comic.pages.length,
-    //       (index) => PhotoViewGalleryPageOptions(
-    //           imageProvider: widget.comic.pages[index].page.image,
-    //           filterQuality: FilterQuality.high,
-    //           onTapDown: onTapDown,
-    //           basePosition: Alignment.center,
-    //           initialScale: _scale,
-    //           minScale: PhotoViewComputedScale.contained,
-    //           controller: _controllers[index])),
-    // ));
-    // stackChilds.add(Align(
-    //     alignment: Alignment.bottomCenter,
-    //     child: ClipRRect(
-    //         borderRadius: BorderRadius.vertical(top: const Radius.circular(10)),
-    //         child: Container(
-    //             padding: const EdgeInsets.symmetric(horizontal: 5),
-    //             color: Colors.grey,
-    //             child: Text(
-    //               (_pageIndex + 1).toString() +
-    //                   '/' +
-    //                   widget.comic.pages.length.toString(),
-    //               style: TextStyle(fontSize: 20),
-    //             )))));
-    // if (DEBUG) {
-    //   final currentImage = widget.comic.pages[_pageIndex];
-    //   if (currentImage.size != null && _viewport != null) {
-    //     stackChilds.add(Align(
-    //         alignment: Alignment.bottomRight,
-    //         child: Opacity(
-    //             opacity: 0.5,
-    //             child: Container(
-    //                 width: 150,
-    //                 height: currentImage.size.height *
-    //                     (150 / currentImage.size.width),
-    //                 child: Stack(children: [
-    //                   currentImage.page,
-    //                   Positioned(
-    //                       top: (150 / currentImage.size.width) * _viewport.top,
-    //                       left: 150 * _viewport.left / currentImage.size.width,
-    //                       child: Container(
-    //                         width:
-    //                             150 * _viewport.width / currentImage.size.width,
-    //                         height: (150 / currentImage.size.width) *
-    //                             _viewport.height,
-    //                         decoration: BoxDecoration(
-    //                             border:
-    //                                 Border.all(color: Colors.red, width: 2)),
-    //                       ))
-    //                 ])))));
-    //   }
-    // }
-
-    // SystemChrome.setEnabledSystemUIOverlays([SystemUiOverlay.bottom]);
-    // return WillPopScope(
-    //     onWillPop: () async {
-    //       SystemChrome.setEnabledSystemUIOverlays(SystemUiOverlay.values);
-    //       return true;
-    //     },
-    //     child: Scaffold(
-    //         backgroundColor: Color.fromRGBO(25, 25, 25, 1),
-    //         body: RawKeyboardListener(
-    //             autofocus: true,
-    //             focusNode: FocusNode(),
-    //             onKey: onKeyChange,
-    //             child: Stack(children: stackChilds))));
   }
 
   void startPageChangeAnimation(pageIndex) {
     if (widget.pageController.hasClients) {
       widget.pageController.animateToPage(pageIndex,
-          duration: const Duration(milliseconds: PAGE_CHANGE_DURATION),
+          duration: const Duration(milliseconds: pageChangeDuration),
           curve: Curves.ease);
       _pageChangeTimer = Timer(
           const Duration(
-              milliseconds: PAGE_CHANGE_DURATION + PAGE_CHANGE_DURATION ~/ 5),
-          () {
+              milliseconds: pageChangeDuration + pageChangeDuration ~/ 5), () {
         _isAnimating = false;
       });
     }
@@ -486,7 +410,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
   Rect computeNextViewPort(Rect viewport, Navigation direction) {
     final imageSize = _pages[_pageIndex].size;
     switch (direction) {
-      case Navigation.NEXT_PAGE:
+      case Navigation.nextPage:
         {
           if (viewport.right.lessThan(imageSize.width)) {
             return viewport.translate(
@@ -495,7 +419,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
           return viewport.translate(-viewport.left,
               min(viewport.height / 2, imageSize.height - viewport.bottom));
         }
-      case Navigation.PREVIOUS_PAGE:
+      case Navigation.previousPage:
         {
           if (viewport.left.greaterThan(0.0)) {
             return viewport.translate(
@@ -513,11 +437,11 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
     double horizontalTapArea = tapPoint.dx / screenSize.width;
     switch ((3 * horizontalTapArea).floor()) {
       case 0:
-        return Navigation.PREVIOUS_PAGE;
+        return Navigation.previousPage;
       case 2:
-        return Navigation.NEXT_PAGE;
+        return Navigation.nextPage;
     }
-    return Navigation.NO_OP;
+    return Navigation.noOp;
   }
 
   void startPanningAnimation(Rect oldViewport, Rect nextViewport) {
@@ -525,7 +449,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
             .customDot(oldViewport.size.bottomRight(Offset.zero)) /
         oldViewport.size.bottomRight(Offset.zero).distanceSquared;
     final animationDuration =
-        max(min(PAN_DURATION * relativeDistance, PAN_DURATION), 1).toInt();
+        max(min(panDuration * relativeDistance, panDuration), 1).toInt();
     _animationController = AnimationController(
         duration: Duration(milliseconds: animationDuration), vsync: this);
     _animation = RectTween(begin: oldViewport, end: nextViewport).animate(
@@ -573,7 +497,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
     return newViewport;
   }
 
-  void moveViewport(Navigation direction) {
+  void moveViewport(Navigation direction, int nextPageNumber) {
     final imageSize = _pages[_pageIndex].size;
     final viewport = _viewport;
     final gotoNextPage = !viewport.right.lessThan(imageSize.width) &&
@@ -583,17 +507,22 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
 
     var nextViewPort = viewport;
 
-    if (direction == Navigation.NEXT_PAGE && gotoNextPage) {
+    if (direction == Navigation.nextPage && gotoNextPage) {
       if (_pageIndex < (_pages.length - 1)) {
         _isAnimating = true;
         startPageChangeAnimation(_pageIndex + 1);
       }
-    } else if (direction == Navigation.PREVIOUS_PAGE && gotoPreviousPage) {
+    } else if (direction == Navigation.previousPage && gotoPreviousPage) {
       if (_pageIndex > 0) {
         _isAnimating = true;
         startPageChangeAnimation(_pageIndex - 1);
       }
-    } else if (direction != Navigation.NO_OP) {
+    } else if (direction == Navigation.jumpToPage &&
+        nextPageNumber != null &&
+        (nextPageNumber >= 0 && nextPageNumber < _pages.length)) {
+      _isAnimating = true;
+      startPageChangeAnimation(nextPageNumber - 1);
+    } else if (direction != Navigation.noOp) {
       nextViewPort = centralizeViewport(
           computeNextViewPort(viewport, direction), imageSize);
       startPanningAnimation(viewport, nextViewPort);
@@ -610,27 +539,15 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
     final screenSize = MediaQuery.of(context).size;
     double horizontalTapArea = details.globalPosition.dx / screenSize.width;
 
-    Navigation direction = Navigation.NO_OP;
+    Navigation direction = Navigation.noOp;
     if (horizontalTapArea <= 0.2) {
-      direction = Navigation.PREVIOUS_PAGE;
+      direction = Navigation.previousPage;
     } else if (horizontalTapArea >= 0.8) {
-      direction = Navigation.NEXT_PAGE;
+      direction = Navigation.nextPage;
     }
-    if (direction == Navigation.NO_OP) {
+    if (direction == Navigation.noOp) {
       return;
     }
-    moveViewport(direction);
+    moveViewport(direction, 0);
   }
-
-  // void onKeyChange(RawKeyEvent value) {
-  //   if (!_isAnimating && value is RawKeyDownEvent) {
-  //     if (value.data.logicalKey == LogicalKeyboardKey.escape) {
-  //       Navigator.pop(context);
-  //     } else if (value.data.logicalKey == LogicalKeyboardKey.arrowRight) {
-  //       moveViewport(Navigation.NEXT_PAGE);
-  //     } else if (value.data.logicalKey == LogicalKeyboardKey.arrowLeft) {
-  //       moveViewport(Navigation.PREVIOUS_PAGE);
-  //     }
-  //   }
-  // }
 }
