@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:math';
 
 import 'package:collection/collection.dart';
@@ -6,7 +5,6 @@ import 'package:comic_reader/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
 
 import 'comic.dart';
 import 'comic_viewer_route.dart';
@@ -14,8 +12,8 @@ import 'comic_viewer_route.dart';
 class ComicGalleryRoute extends StatefulWidget {
   final List<String> originalFilePaths;
 
-  ComicGalleryRoute(this.originalFilePaths) {
-    this.originalFilePaths.sort(compareAsciiLowerCaseNatural);
+  ComicGalleryRoute(this.originalFilePaths, {Key key}) : super(key: key) {
+    originalFilePaths.sort(compareAsciiLowerCaseNatural);
   }
 
   @override
@@ -24,7 +22,7 @@ class ComicGalleryRoute extends StatefulWidget {
 
 class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
   PageController _landscapeController;
-  PageController _potraitController;
+  PageController _portraitController;
   PageController _controller;
   var _currentPageValue = 0.0;
 
@@ -33,20 +31,20 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
   Future<bool> _loader;
 
   Future<bool> loadGallery() async {
-    if (CACHE_DIRECTORY.existsSync()) {
+    if (cacheDirectory.existsSync()) {
       logger.d("Deleting existing cache folder");
-      await CACHE_DIRECTORY.delete(recursive: true);
+      cacheDirectory.deleteSync(recursive: true);
     }
 
     logger.d("Create cache folder");
-    await CACHE_DIRECTORY.create(recursive: true);
+    cacheDirectory.createSync(recursive: true);
 
     final comics =
         widget.originalFilePaths.map((e) => Comic(archiveFilePath: e)).toList();
 
     for (var comic in comics) {
       try {
-        await comic.loadComicPreview();
+        comic.loadComicPreview();
       } catch (e) {
         await showDialog(
             context: context,
@@ -66,7 +64,6 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
                     child: const Text('Ok'),
                     onPressed: () {
                       Navigator.of(context).pop();
-                      return false;
                     },
                   ),
                 ],
@@ -82,12 +79,10 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
 
   unloadGallery() async {
     _comics.clear();
-    final directory = new Directory(
-        (await getTemporaryDirectory()).path + "/comicReaderCache");
 
-    if (directory.existsSync()) {
+    if (cacheDirectory.existsSync()) {
       logger.d("Deleting existing cache folder");
-      directory.deleteSync(recursive: true);
+      cacheDirectory.deleteSync(recursive: true);
     }
 
     logger.d("Files deleted");
@@ -97,16 +92,16 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
   void initState() {
     super.initState();
     _landscapeController = PageController(viewportFraction: 0.45);
-    _potraitController = PageController(viewportFraction: 1);
+    _portraitController = PageController(viewportFraction: 1);
     _loader = loadGallery();
     _landscapeController.addListener(() {
       setState(() {
         _currentPageValue = _landscapeController.page;
       });
     });
-    _potraitController.addListener(() {
+    _portraitController.addListener(() {
       setState(() {
-        _currentPageValue = _potraitController.page;
+        _currentPageValue = _portraitController.page;
       });
     });
     _controller = _landscapeController;
@@ -116,7 +111,7 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
   void dispose() {
     logger.d("Calling dispose");
     _landscapeController.dispose();
-    _potraitController.dispose();
+    _portraitController.dispose();
     _loader.then((value) {
       unloadGallery();
     });
@@ -125,12 +120,12 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
 
   @override
   Widget build(BuildContext context) {
-    const MAX_PAGE_ROTATION = pi / 2;
+    const maxPageRotation = pi / 2;
     return OrientationBuilder(
       builder: (context, orientation) {
         _controller = orientation == Orientation.landscape
             ? _landscapeController
-            : _potraitController;
+            : _portraitController;
         return FutureBuilder(
           future: _loader,
           builder: (context, AsyncSnapshot<bool> snapshot) {
@@ -138,28 +133,27 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
               return Shortcuts(
                   shortcuts: <LogicalKeySet, Intent>{
                     LogicalKeySet(LogicalKeyboardKey.arrowLeft):
-                        KeyIntent(Navigation.PREVIOUS_COMIC),
+                        const KeyIntent(Navigation.previousComic),
                     LogicalKeySet(LogicalKeyboardKey.arrowRight):
-                        KeyIntent(Navigation.NEXT_COMIC),
+                        const KeyIntent(Navigation.nextComic),
                     LogicalKeySet(LogicalKeyboardKey.escape):
-                        KeyIntent(Navigation.BACK),
+                        const KeyIntent(Navigation.back),
                   },
                   child: Actions(
                     actions: <Type, Action<Intent>>{
                       KeyIntent: CallbackAction<KeyIntent>(
                         onInvoke: (KeyIntent intent) {
-                          if (intent.direction == Navigation.PREVIOUS_COMIC) {
+                          if (intent.direction == Navigation.previousComic) {
                             _controller.previousPage(
                                 duration: const Duration(
-                                    milliseconds: PAGE_CHANGE_DURATION),
+                                    milliseconds: pageChangeDuration),
                                 curve: Curves.ease);
-                          } else if (intent.direction ==
-                              Navigation.NEXT_COMIC) {
+                          } else if (intent.direction == Navigation.nextComic) {
                             _controller.nextPage(
                                 duration: const Duration(
-                                    milliseconds: PAGE_CHANGE_DURATION),
+                                    milliseconds: pageChangeDuration),
                                 curve: Curves.ease);
-                          } else if (intent.direction == Navigation.BACK) {
+                          } else if (intent.direction == Navigation.back) {
                             Navigator.pop(context);
                           }
                           return intent;
@@ -176,7 +170,7 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
                               return ElevatedButton(
                                 autofocus: false,
                                 style: ElevatedButton.styleFrom(
-                                  primary: Colors.transparent,
+                                  backgroundColor: Colors.transparent,
                                 ),
                                 onPressed: () {
                                   Navigator.push(
@@ -193,7 +187,7 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
                                                 .isNegative
                                             ? 1
                                             : -1) *
-                                        MAX_PAGE_ROTATION *
+                                        maxPageRotation *
                                         (1 -
                                             exp(-1 *
                                                 (_currentPageValue - position)
@@ -212,16 +206,17 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
                           Align(
                             alignment: Alignment.bottomCenter,
                             child: Text(
-                              path.basenameWithoutExtension(
-                                      _comics[_currentPageValue.round()]
-                                          .archiveFilePath) +
-                                  "\n" +
-                                  _comics[_currentPageValue.round()]
-                                      .numberOfPages
-                                      .toString(),
+                              [
+                                path.basenameWithoutExtension(
+                                    _comics[_currentPageValue.round()]
+                                        .archiveFilePath),
+                                _comics[_currentPageValue.round()]
+                                    .numberOfPages
+                                    .toString()
+                              ].join("\n"),
                               textAlign: TextAlign.center,
-                              style:
-                                  TextStyle(fontSize: 20, color: Colors.white),
+                              style: const TextStyle(
+                                  fontSize: 20, color: Colors.white),
                             ),
                           )
                         ],
@@ -229,11 +224,11 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
                     ),
                   ));
             } else {
-              return Center(
+              return const Center(
                 child: SizedBox(
-                  child: CircularProgressIndicator(),
                   height: 60,
                   width: 60,
+                  child: CircularProgressIndicator(),
                 ),
               );
             }
