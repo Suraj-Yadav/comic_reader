@@ -1,8 +1,8 @@
 name: Build Release
 on:
   push:
-    branches:
-      - master
+    tags:
+      - "v*"
 jobs:
   build-release-macos:
     runs-on: macos-latest
@@ -52,7 +52,6 @@ jobs:
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
-          automatic_release_tag: "latest"
           files: |
             ComicReaderMac.zip
             ComicReaderWin.zip
