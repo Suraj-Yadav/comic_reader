@@ -3,15 +3,15 @@ import 'dart:io';
 import 'package:comic_reader/src/comic_gallery_route.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:window_size/window_size.dart' as window_size;
+import 'package:window_manager/window_manager.dart';
 
 class FilePickerRoute extends StatelessWidget {
-  const FilePickerRoute({Key key}) : super(key: key);
+  const FilePickerRoute({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-      window_size.setWindowTitle("Choose Files");
+      windowManager.setTitle("Choose Files");
     }
     return Scaffold(
       appBar: AppBar(
@@ -22,19 +22,24 @@ class FilePickerRoute extends StatelessWidget {
           style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20)),
           onPressed: () async {
             final List<String> filePaths = [];
-            var res = await FilePicker.platform.pickFiles(allowMultiple: true);
-            filePaths
-                .addAll(res.paths.where((element) => element.endsWith('cbz')));
+            var res =
+                (await FilePicker.platform.pickFiles(allowMultiple: true))!;
+            for (var path in res.paths) {
+              if (path != null && path.endsWith('cbz')) {
+                filePaths.add(path);
+              }
+            }
 
             if (filePaths.isEmpty) {
               return;
             }
-
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ComicGalleryRoute(filePaths),
-                ));
+            if (context.mounted) {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ComicGalleryRoute(filePaths),
+                  ));
+            }
           },
           child: const Text('Open file picker'),
         ),
