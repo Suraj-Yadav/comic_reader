@@ -1,6 +1,8 @@
 name: Build Release
 on: 
-  push: [branches]
+  push:
+    branches:
+      - '!master'
 jobs:
   build-release-macos:
     runs-on: macos-latest
