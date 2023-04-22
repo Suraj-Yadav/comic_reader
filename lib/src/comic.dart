@@ -23,17 +23,21 @@ ComicPage savePage(String filePath, ArchiveFile file) {
 
   final imageFile = File(filePath);
 
-  final s = image_size_getter.ImageSizeGetter.getSize(
-      image_size_getter.FileInput(imageFile));
-  return ComicPage(imageFile, Size(s.width.toDouble(), s.height.toDouble()));
+  try {
+    final s = image_size_getter.ImageSizeGetter.getSize(
+        image_size_getter.FileInput(imageFile));
+    return ComicPage(imageFile, Size(s.width.toDouble(), s.height.toDouble()));
+  } on RangeError catch (_) {
+    return ComicPage(imageFile, const Size(100, 100));
+  }
 }
 
 class Comic {
   final String archiveFilePath;
-  ComicPage firstPage;
-  int numberOfPages;
+  late ComicPage firstPage;
+  late int numberOfPages;
 
-  Comic({this.archiveFilePath});
+  Comic({required this.archiveFilePath});
 
   bool loadComicPreview() {
     bool success = true;

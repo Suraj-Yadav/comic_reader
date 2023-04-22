@@ -12,7 +12,7 @@ import 'comic_viewer_route.dart';
 class ComicGalleryRoute extends StatefulWidget {
   final List<String> originalFilePaths;
 
-  ComicGalleryRoute(this.originalFilePaths, {Key key}) : super(key: key) {
+  ComicGalleryRoute(this.originalFilePaths, {super.key}) {
     originalFilePaths.sort(compareAsciiLowerCaseNatural);
   }
 
@@ -21,14 +21,14 @@ class ComicGalleryRoute extends StatefulWidget {
 }
 
 class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
-  PageController _landscapeController;
-  PageController _portraitController;
-  PageController _controller;
-  var _currentPageValue = 0.0;
+  late PageController _landscapeController;
+  late PageController _portraitController;
+  late PageController _controller;
+  late double _currentPageValue = 0.0;
 
   List<Comic> _comics = [];
 
-  Future<bool> _loader;
+  late Future<bool> _loader;
 
   Future<bool> loadGallery() async {
     if (cacheDirectory.existsSync()) {
@@ -96,12 +96,12 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
     _loader = loadGallery();
     _landscapeController.addListener(() {
       setState(() {
-        _currentPageValue = _landscapeController.page;
+        _currentPageValue = _landscapeController.page!;
       });
     });
     _portraitController.addListener(() {
       setState(() {
-        _currentPageValue = _portraitController.page;
+        _currentPageValue = _portraitController.page!;
       });
     });
     _controller = _landscapeController;

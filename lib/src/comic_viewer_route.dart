@@ -13,7 +13,7 @@ import 'package:path/path.dart' as path;
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:prompt_dialog/prompt_dialog.dart';
-import 'package:window_size/window_size.dart' as window_size;
+import 'package:window_manager/window_manager.dart';
 
 const pageChangeDuration = 500;
 const panDuration = 1000;
@@ -59,10 +59,9 @@ class ComicViewerRoute extends StatefulWidget {
   final Comic comic;
   final PageController pageController;
 
-  ComicViewerRoute(this.comics, this.index, {Key key})
+  ComicViewerRoute(this.comics, this.index, {super.key})
       : pageController = PageController(initialPage: 0),
-        comic = comics[index],
-        super(key: key);
+        comic = comics[index];
 
   @override
   State<StatefulWidget> createState() => _ComicViewerRouteState();
@@ -84,15 +83,15 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
     with TickerProviderStateMixin {
   int _pageIndex = 0;
   bool _isAnimating = false;
-  Animation<Rect> _animation;
-  AnimationController _animationController;
-  Rect _viewport;
-  double _scale;
-  Timer _pageChangeTimer;
+  Animation<Rect?>? _animation;
+  AnimationController? _animationController;
+  Rect? _viewport;
+  double? _scale;
+  Timer? _pageChangeTimer;
 
   bool verticalScroll = false;
 
-  Future<bool> _loader;
+  late Future<bool> _loader;
 
   final List<ComicPage> _pages = [];
   final List<PhotoViewControllerBase> _controllers = [];
@@ -171,7 +170,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
       controller.dispose();
     }
     if (_animationController != null) {
-      _animationController.dispose();
+      _animationController!.dispose();
     }
     closeComic();
     super.dispose();
@@ -180,28 +179,23 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
   void viewPortListener(int pageIndex, PhotoViewControllerValue value) {
     // logger.d("Calling viewPortListener");
     // logger.d({"pageIndex": pageIndex});
-    if (pageIndex == _pageIndex &&
-        !_isAnimating &&
-        value.position != null &&
-        value.scale != null) {
+    if (pageIndex == _pageIndex && !_isAnimating && value.scale != null) {
       final currentImage = _pages[pageIndex];
-      if (currentImage.size != null) {
-        final newViewport = computeViewPort(MediaQuery.of(context).size,
-            currentImage.size, value.position, value.scale);
-        // logger.d({
-        //   "_scale": _scale,
-        //   "value.scale": value.scale,
-        //   "newViewport": newViewport,
-        //   "_viewport": _viewport,
-        //   "_scale != value.scale": _scale != value.scale,
-        //   "newViewport != _viewport": newViewport != _viewport,
-        // });
-        if (_scale != value.scale || !newViewport.almostEqual(_viewport)) {
-          setState(() {
-            _viewport = newViewport;
-            _scale = value.scale;
-          });
-        }
+      final newViewport = computeViewPort(MediaQuery.of(context).size,
+          currentImage.size, value.position, value.scale!);
+      // logger.d({
+      //   "_scale": _scale,
+      //   "value.scale": value.scale,
+      //   "newViewport": newViewport,
+      //   "_viewport": _viewport,
+      //   "_scale != value.scale": _scale != value.scale,
+      //   "newViewport != _viewport": newViewport != _viewport,
+      // });
+      if (_scale != value.scale || !newViewport.almostEqual(_viewport)) {
+        setState(() {
+          _viewport = newViewport;
+          _scale = value.scale;
+        });
       }
     }
   }
@@ -215,14 +209,16 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
       builder: (context, AsyncSnapshot<bool> snapshot) {
         if (snapshot.hasData) {
           if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-            window_size.setWindowTitle(
+            windowManager.setTitle(
                 path.basenameWithoutExtension(widget.comic.archiveFilePath));
+            // window_size.setWindowTitle(
+            //     path.basenameWithoutExtension(widget.comic.archiveFilePath!));
           }
           if (_viewport != null) {
             final screenSize = MediaQuery.of(context).size;
             final imageSize = _pages[_pageIndex].size;
             final positionAndScale =
-                computePositionAndScale(screenSize, imageSize, _viewport);
+                computePositionAndScale(screenSize, imageSize, _viewport!);
             _controllers[_pageIndex].updateMultiple(
                 position: positionAndScale.key, scale: positionAndScale.value);
           }
@@ -244,7 +240,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
                     basePosition: Alignment.center,
                     initialScale: _scale,
                     minScale: PhotoViewComputedScale.contained,
-                    controller: _controllers[index])),
+                    controller: _controllers[index] as PhotoViewController?)),
           ));
           stackChildren.add(Align(
               alignment: Alignment.bottomCenter,
@@ -260,7 +256,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
                       )))));
           if (debug) {
             final currentImage = _pages[_pageIndex];
-            if (currentImage.size != null && _viewport != null) {
+            if (_viewport != null) {
               stackChildren.add(Align(
                   alignment: Alignment.bottomRight,
                   child: Opacity(
@@ -273,16 +269,16 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
                             Image.file(currentImage.imgFile),
                             Positioned(
                                 top: (150 / currentImage.size.width) *
-                                    _viewport.top,
+                                    _viewport!.top,
                                 left: 150 *
-                                    _viewport.left /
+                                    _viewport!.left /
                                     currentImage.size.width,
                                 child: Container(
                                   width: 150 *
-                                      _viewport.width /
+                                      _viewport!.width /
                                       currentImage.size.width,
                                   height: (150 / currentImage.size.width) *
-                                      _viewport.height,
+                                      _viewport!.height,
                                   decoration: BoxDecoration(
                                       border: Border.all(
                                           color: Colors.red, width: 2)),
@@ -319,10 +315,10 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
                   } else if (intent.direction == Navigation.switchScroll) {
                     verticalScroll = !verticalScroll;
                   } else if (intent.direction == Navigation.jumpToPage) {
-                    String pageNumberStr = await prompt(
+                    String pageNumberStr = (await prompt(
                       context,
                       title: const Text('Enter Page Number'),
-                    );
+                    ))!;
                     moveViewport(intent.direction, int.tryParse(pageNumberStr));
                   }
                   return intent;
@@ -370,20 +366,21 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
     final newImageSize = _pages[index].size;
     if (index > _pageIndex) {
       _viewport = centralizeViewport(
-          _viewport.translate(-_viewport.left, -_viewport.top), newImageSize);
+          _viewport!.translate(-_viewport!.left, -_viewport!.top),
+          newImageSize);
     } else if (index < _pageIndex) {
       _viewport = centralizeViewport(
-          _viewport.translate(newImageSize.width - _viewport.right,
-              newImageSize.height - _viewport.bottom),
+          _viewport!.translate(newImageSize.width - _viewport!.right,
+              newImageSize.height - _viewport!.bottom),
           newImageSize);
     }
 
-    // This is needed beacuse i haven't figured a way to specify initial location for a new page
-    startPanningAnimation(_viewport, _viewport.translate(0, 10));
-    startPanningAnimation(_viewport, _viewport.translate(0, -10));
+    // This is needed because i haven't figured a way to specify initial location for a new page
+    startPanningAnimation(_viewport!, _viewport!.translate(0, 10));
+    startPanningAnimation(_viewport!, _viewport!.translate(0, -10));
 
     if (_pageChangeTimer != null) {
-      _pageChangeTimer.cancel();
+      _pageChangeTimer!.cancel();
       _pageChangeTimer = null;
     }
     setState(() {
@@ -399,7 +396,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
         screenSize / scale;
   }
 
-  MapEntry<Offset, double> computePositionAndScale(
+  MapEntry<Offset, double?> computePositionAndScale(
       Size screenSize, Size imageSize, Rect viewPort) {
     final scale = max(
         screenSize.width / viewPort.width, screenSize.height / viewPort.height);
@@ -453,28 +450,28 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
     _animationController = AnimationController(
         duration: Duration(milliseconds: animationDuration), vsync: this);
     _animation = RectTween(begin: oldViewport, end: nextViewport).animate(
-        CurvedAnimation(parent: _animationController, curve: Curves.ease))
+        CurvedAnimation(parent: _animationController!, curve: Curves.ease))
       ..addListener(animationListener);
-    _animationController.forward();
+    _animationController!.forward();
   }
 
   void animationListener() {
     if (_animationController == null) {
       return;
     }
-    final status = _animationController.status;
+    final status = _animationController!.status;
     if (status == AnimationStatus.completed) {
       setState(() {
         _isAnimating = false;
-        _viewport = _animation.value;
-        _animation.removeListener(animationListener);
+        _viewport = _animation!.value;
+        _animation!.removeListener(animationListener);
         _animation = null;
-        _animationController.dispose();
+        _animationController!.dispose();
         _animationController = null;
       });
     } else {
       setState(() {
-        _viewport = _animation.value;
+        _viewport = _animation!.value;
         _isAnimating = true;
       });
     }
@@ -497,9 +494,9 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
     return newViewport;
   }
 
-  void moveViewport(Navigation direction, int nextPageNumber) {
+  void moveViewport(Navigation direction, int? nextPageNumber) {
     final imageSize = _pages[_pageIndex].size;
-    final viewport = _viewport;
+    final viewport = _viewport!;
     final gotoNextPage = !viewport.right.lessThan(imageSize.width) &&
         !viewport.bottom.lessThan(imageSize.height);
     final gotoPreviousPage =
