@@ -130,9 +130,15 @@ const String _libName = 'archive';
 
 /// The dynamic library in which the symbols for [LibarchiveBindings] can be found.
 final DynamicLibrary _dylib = () {
-  if (Platform.isMacOS || Platform.isIOS) {
-    return DynamicLibrary.open(
-        '/opt/homebrew/opt/libarchive/lib/libarchive.dylib');
+  if (Platform.isMacOS) {
+    for (var path in [
+      '/opt/homebrew/opt/libarchive/lib/libarchive.dylib',
+      '/usr/local/opt/libarchive/lib/libarchive.dylib'
+    ]) {
+      if (File(path).existsSync()) {
+        return DynamicLibrary.open(path);
+      }
+    }
   }
   if (Platform.isAndroid || Platform.isLinux) {
     return DynamicLibrary.open('lib$_libName.so');
