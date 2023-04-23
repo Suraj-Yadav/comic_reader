@@ -131,7 +131,8 @@ const String _libName = 'archive';
 /// The dynamic library in which the symbols for [LibarchiveBindings] can be found.
 final DynamicLibrary _dylib = () {
   if (Platform.isMacOS || Platform.isIOS) {
-    return DynamicLibrary.open('$_libName.framework/$_libName');
+    return DynamicLibrary.open(
+        _getAssetsPath('assets/third_party/libarchive/lib/libarchive.dylib'));
   }
   if (Platform.isAndroid || Platform.isLinux) {
     return DynamicLibrary.open('lib$_libName.so');
