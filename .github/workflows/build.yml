@@ -13,7 +13,7 @@ jobs:
         with:
           architecture: x64
           channel: 'stable'
-      - run: bash ./build.sh macos
+      - run: ./build.sh macos
         shell: bash
       - uses: actions/upload-artifact@v3
         with:
@@ -26,7 +26,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-      - run: bash ./build.sh windows
+      - run: ./build.sh windows
         shell: bash
       - uses: actions/upload-artifact@v3
         with:
