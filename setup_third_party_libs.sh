@@ -18,4 +18,10 @@ if [[ "$target" == "windows" ]]; then
         7z x "$folder/libarchive.zip" -o"$folder" -y
         rm -rf "$folder/libarchive.zip"
     fi
+elif [[ "$target" == "macos" ]]; then
+    git clone --depth 1 --branch v3.6.2 https://github.com/libarchive/libarchive.git
+    cd libarchive
+    cmake .
+    make
+    tree
 fi
