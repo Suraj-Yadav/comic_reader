@@ -21,7 +21,7 @@ if [[ "$target" == "windows" ]]; then
 elif [[ "$target" == "macos" ]]; then
     git clone --depth 1 --branch v3.6.2 https://github.com/libarchive/libarchive.git
     cd libarchive
-    cmake .
+    cmake . -DENABLE_WERROR=OFF -DENABLE_TEST=OFF -DENABLE_INSTALL=OFF -DENABLE_CAT=OFF -DENABLE_TAR=OFF -DENABLE_CPIO=OFF
     make
-    tree
+    find .
 fi
