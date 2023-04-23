@@ -132,7 +132,7 @@ const String _libName = 'archive';
 final DynamicLibrary _dylib = () {
   if (Platform.isMacOS || Platform.isIOS) {
     return DynamicLibrary.open(
-        _getAssetsPath('third_party/libarchive/lib/libarchive.dylib'));
+        '/opt/homebrew/opt/libarchive/lib/libarchive.dylib');
   }
   if (Platform.isAndroid || Platform.isLinux) {
     return DynamicLibrary.open('lib$_libName.so');

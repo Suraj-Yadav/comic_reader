@@ -19,9 +19,5 @@ if [[ "$target" == "windows" ]]; then
         rm -rf "$folder/libarchive.zip"
     fi
 elif [[ "$target" == "macos" ]]; then
-    git clone --depth 1 --branch v3.6.2 https://github.com/libarchive/libarchive.git
-    cd libarchive
-    cmake . -DENABLE_WERROR=OFF -DENABLE_TEST=OFF -DENABLE_CAT=OFF -DENABLE_TAR=OFF -DENABLE_CPIO=OFF -DCMAKE_INSTALL_PREFIX=../assets/third_party/libarchive -DCMAKE_BUILD_TYPE=Release
-    make install -j $(nproc)
-    find ../assets/third_party/libarchive
+    brew install libarchive
 fi
