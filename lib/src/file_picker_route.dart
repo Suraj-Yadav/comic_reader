@@ -22,10 +22,10 @@ class FilePickerRoute extends StatelessWidget {
           style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20)),
           onPressed: () async {
             final List<String> filePaths = [];
-            var res =
-                (await FilePicker.platform.pickFiles(allowMultiple: true))!;
+            var res = (await FilePicker.platform.pickFiles(
+                allowMultiple: true, allowedExtensions: ['cbz', 'cbr']))!;
             for (var path in res.paths) {
-              if (path != null && path.endsWith('cbz')) {
+              if (path != null) {
                 filePaths.add(path);
               }
             }

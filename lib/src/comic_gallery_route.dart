@@ -26,11 +26,11 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
   late PageController _controller;
   late double _currentPageValue = 0.0;
 
-  List<Comic> _comics = [];
+  final List<Comic> _comics = [];
 
-  late Future<bool> _loader;
+  bool loaded = false;
 
-  Future<bool> loadGallery() async {
+  Future<bool> loadGallery() {
     if (cacheDirectory.existsSync()) {
       logger.d("Deleting existing cache folder");
       cacheDirectory.deleteSync(recursive: true);
@@ -42,39 +42,58 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
     final comics =
         widget.originalFilePaths.map((e) => Comic(archiveFilePath: e)).toList();
 
-    for (var comic in comics) {
-      try {
-        comic.loadComicPreview();
-      } catch (e) {
-        await showDialog(
-            context: context,
-            builder: (context) {
-              return AlertDialog(
-                title: const Text('Unable to open comic'),
-                content: SingleChildScrollView(
-                  child: ListBody(
-                    children: <Widget>[
-                      Text(comic.archiveFilePath),
-                      Text(e.toString()),
-                    ],
+    return Future(() async {
+      for (var comic in comics) {
+        try {
+          comic.loadComicPreview();
+          _comics.add(comic);
+        } catch (e) {
+          await showDialog(
+              context: context,
+              builder: (context) {
+                return AlertDialog(
+                  title: const Text('Unable to open comic'),
+                  content: SingleChildScrollView(
+                    child: ListBody(
+                      children: <Widget>[
+                        Text(comic.archiveFilePath),
+                        Text(e.toString()),
+                      ],
+                    ),
                   ),
-                ),
-                actions: <Widget>[
-                  TextButton(
-                    child: const Text('Ok'),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                  ),
-                ],
-              );
-            });
+                  actions: <Widget>[
+                    TextButton(
+                      child: const Text('Ok'),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
+                );
+              });
+        }
       }
-    }
-
-    _comics = comics;
-
-    return true;
+      if (_comics.isEmpty) {
+        if (context.mounted) {
+          await showDialog(
+              context: context,
+              builder: (context) {
+                return AlertDialog(
+                  title: const Text('No valid files were found'),
+                  actions: <Widget>[
+                    TextButton(
+                      child: const Text('Ok'),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
+                );
+              });
+        }
+      }
+      return _comics.isNotEmpty;
+    });
   }
 
   unloadGallery() async {
@@ -93,7 +112,6 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
     super.initState();
     _landscapeController = PageController(viewportFraction: 0.45);
     _portraitController = PageController(viewportFraction: 1);
-    _loader = loadGallery();
     _landscapeController.addListener(() {
       setState(() {
         _currentPageValue = _landscapeController.page!;
@@ -105,6 +123,14 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
       });
     });
     _controller = _landscapeController;
+    loadGallery().then((success) {
+      setState(() {
+        loaded = success;
+      });
+      if (!success) {
+        Navigator.pop(context);
+      }
+    });
   }
 
   @override
@@ -112,9 +138,7 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
     logger.d("Calling dispose");
     _landscapeController.dispose();
     _portraitController.dispose();
-    _loader.then((value) {
-      unloadGallery();
-    });
+    unloadGallery();
     super.dispose();
   }
 
@@ -126,65 +150,61 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
         _controller = orientation == Orientation.landscape
             ? _landscapeController
             : _portraitController;
-        return FutureBuilder(
-          future: _loader,
-          builder: (context, AsyncSnapshot<bool> snapshot) {
-            if (snapshot.hasData) {
-              return Shortcuts(
-                  shortcuts: <LogicalKeySet, Intent>{
-                    LogicalKeySet(LogicalKeyboardKey.arrowLeft):
-                        const KeyIntent(Navigation.previousComic),
-                    LogicalKeySet(LogicalKeyboardKey.arrowRight):
-                        const KeyIntent(Navigation.nextComic),
-                    LogicalKeySet(LogicalKeyboardKey.escape):
-                        const KeyIntent(Navigation.back),
-                  },
-                  child: Actions(
-                    actions: <Type, Action<Intent>>{
-                      KeyIntent: CallbackAction<KeyIntent>(
-                        onInvoke: (KeyIntent intent) {
-                          if (intent.direction == Navigation.previousComic) {
-                            _controller.previousPage(
-                                duration: const Duration(
-                                    milliseconds: pageChangeDuration),
-                                curve: Curves.ease);
-                          } else if (intent.direction == Navigation.nextComic) {
-                            _controller.nextPage(
-                                duration: const Duration(
-                                    milliseconds: pageChangeDuration),
-                                curve: Curves.ease);
-                          } else if (intent.direction == Navigation.back) {
-                            Navigator.pop(context);
-                          }
-                          return intent;
-                        },
-                      )
+        if (loaded) {
+          return Shortcuts(
+              shortcuts: <LogicalKeySet, Intent>{
+                LogicalKeySet(LogicalKeyboardKey.arrowLeft):
+                    const KeyIntent(Navigation.previousComic),
+                LogicalKeySet(LogicalKeyboardKey.arrowRight):
+                    const KeyIntent(Navigation.nextComic),
+                LogicalKeySet(LogicalKeyboardKey.escape):
+                    const KeyIntent(Navigation.back),
+              },
+              child: Actions(
+                actions: <Type, Action<Intent>>{
+                  KeyIntent: CallbackAction<KeyIntent>(
+                    onInvoke: (KeyIntent intent) {
+                      if (intent.direction == Navigation.previousComic) {
+                        _controller.previousPage(
+                            duration: const Duration(
+                                milliseconds: pageChangeDuration),
+                            curve: Curves.ease);
+                      } else if (intent.direction == Navigation.nextComic) {
+                        _controller.nextPage(
+                            duration: const Duration(
+                                milliseconds: pageChangeDuration),
+                            curve: Curves.ease);
+                      } else if (intent.direction == Navigation.back) {
+                        Navigator.pop(context);
+                      }
+                      return intent;
                     },
-                    child: Scaffold(
-                      backgroundColor: Colors.black,
-                      body: Stack(
-                        children: [
-                          PageView.builder(
-                            // physics: ClampingScrollPhysics(),
-                            itemBuilder: (context, position) {
-                              return ElevatedButton(
-                                autofocus: false,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.transparent,
-                                ),
-                                onPressed: () {
-                                  Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (context) =>
-                                              ComicViewerRoute(
-                                                  _comics, position)));
-                                },
-                                child: Transform(
-                                  transform: Matrix4.identity()
-                                    ..setEntry(3, 2, 0.001) // perspective
-                                    ..rotateY(((_currentPageValue - position)
-                                                .isNegative
+                  )
+                },
+                child: Scaffold(
+                  backgroundColor: Colors.black,
+                  body: Stack(
+                    children: [
+                      PageView.builder(
+                        // physics: ClampingScrollPhysics(),
+                        itemBuilder: (context, position) {
+                          return ElevatedButton(
+                            autofocus: false,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                            ),
+                            onPressed: () {
+                              Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          ComicViewerRoute(_comics, position)));
+                            },
+                            child: Transform(
+                              transform: Matrix4.identity()
+                                ..setEntry(3, 2, 0.001) // perspective
+                                ..rotateY(
+                                    ((_currentPageValue - position).isNegative
                                             ? 1
                                             : -1) *
                                         maxPageRotation *
@@ -192,48 +212,46 @@ class _ComicGalleryRouteState extends State<ComicGalleryRoute> {
                                             exp(-1 *
                                                 (_currentPageValue - position)
                                                     .abs()))),
-                                  alignment: FractionalOffset.center,
-                                  child: FractionallySizedBox(
-                                      heightFactor: 0.7,
-                                      child: Image.file(
-                                          _comics[position].firstPage.imgFile)),
-                                ),
-                              );
-                            },
-                            itemCount: _comics.length,
-                            controller: _controller,
-                          ),
-                          Align(
-                            alignment: Alignment.bottomCenter,
-                            child: Text(
-                              [
-                                path.basenameWithoutExtension(
-                                    _comics[_currentPageValue.round()]
-                                        .archiveFilePath),
-                                _comics[_currentPageValue.round()]
-                                    .numberOfPages
-                                    .toString()
-                              ].join("\n"),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                  fontSize: 20, color: Colors.white),
+                              alignment: FractionalOffset.center,
+                              child: FractionallySizedBox(
+                                  heightFactor: 0.7,
+                                  child: Image.file(
+                                      _comics[position].firstPage.imgFile)),
                             ),
-                          )
-                        ],
+                          );
+                        },
+                        itemCount: _comics.length,
+                        controller: _controller,
                       ),
-                    ),
-                  ));
-            } else {
-              return const Center(
-                child: SizedBox(
-                  height: 60,
-                  width: 60,
-                  child: CircularProgressIndicator(),
+                      Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Text(
+                          [
+                            path.basenameWithoutExtension(
+                                _comics[_currentPageValue.round()]
+                                    .archiveFilePath),
+                            _comics[_currentPageValue.round()]
+                                .numberOfPages
+                                .toString()
+                          ].join("\n"),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              fontSize: 20, color: Colors.white),
+                        ),
+                      )
+                    ],
+                  ),
                 ),
-              );
-            }
-          },
-        );
+              ));
+        } else {
+          return const Center(
+            child: SizedBox(
+              height: 60,
+              width: 60,
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
       },
     );
   }

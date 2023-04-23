@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:archive/archive_io.dart';
 import 'package:collection/collection.dart';
 import 'package:comic_reader/main.dart';
 import 'package:comic_reader/src/comic.dart';
+import 'package:comic_reader/src/libarchive/libarchive.dart' as libarchive;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:mime/mime.dart';
+import 'package:mime/mime.dart' as mime;
 import 'package:path/path.dart' as path;
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
@@ -107,18 +107,16 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
     comicCache.createSync(recursive: true);
 
     try {
-      final archive = ZipDecoder()
-          .decodeBuffer(InputFileStream(widget.comic.archiveFilePath));
-      for (var file in archive.files) {
+      for (var file
+          in libarchive.getArchiveFiles(widget.comic.archiveFilePath)) {
         if (!file.isFile) {
           continue;
         }
-        final mimeType = lookupMimeType(file.name, headerBytes: file.content);
+        final mimeType =
+            mime.lookupMimeType(file.path, headerBytes: file.headerBytes);
         if (mimeType != null && mimeType.startsWith("image/")) {
           _pages.add(savePage(
-              path.join(comicCache.path, path.basename(file.name)), file));
-        } else {
-          logger.w("File with null mimeType: ${file.name}");
+              path.join(comicCache.path, path.basename(file.path)), file));
         }
         if ((_pages.length / widget.comic.numberOfPages) - lastProgress >
             0.01) {
