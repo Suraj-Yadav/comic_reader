@@ -13,8 +13,8 @@ A new Flutter FFI plugin project.
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Your Company' => 'email@example.com' }
   s.prepare_command = <<-CMD
-    cmake ../src
-    cmake --build .
+    git clone https://github.com/libarchive/libarchive.git
+    cp --recursive libarchive/libarchive/* Classes
   CMD
 
   # This will ensure the source files in Classes/ are included in the native
