@@ -8,7 +8,7 @@ if [ "$#" -ne 1 ]; then
 fi
 target="$1"
 
-folder="./assets/third_party"
+folder="./prebuilt"
 mkdir -p "$folder"
 
 if [[ "$target" == "windows" ]]; then
@@ -18,6 +18,4 @@ if [[ "$target" == "windows" ]]; then
         7z x "$folder/libarchive.zip" -o"$folder" -y
         rm -rf "$folder/libarchive.zip"
     fi
-elif [[ "$target" == "macos" ]]; then
-    brew install libarchive
 fi

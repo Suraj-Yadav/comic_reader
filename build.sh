@@ -10,12 +10,9 @@ target="$1"
 
 ./setup_third_party_libs.sh $target
 
-# Make this directory so flutter doesn't complain
-mkdir -p assets/third_party/libarchive/bin
-
 flutter precache
-flutter test
 flutter build $target --release
+flutter test
 
 if [[ "$target" == "windows" ]]; then
     7z a ComicReaderWin.zip ./build/windows/runner/Release/*

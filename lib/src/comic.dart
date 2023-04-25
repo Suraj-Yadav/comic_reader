@@ -1,8 +1,7 @@
 import 'dart:io';
 
 import 'package:comic_reader/main.dart';
-import 'package:archive/archive_io.dart';
-import 'package:comic_reader/src/libarchive/libarchive.dart' as libarchive;
+import 'package:archive/archive.dart' as archive;
 import 'package:flutter/material.dart';
 import 'package:image_size_getter/file_input.dart' as image_size_getter;
 import 'package:image_size_getter/image_size_getter.dart' as image_size_getter;
@@ -16,24 +15,8 @@ class ComicPage {
   ComicPage(this.imgFile, this.size);
 }
 
-ComicPage savePage(String filePath, libarchive.ArchiveFile file) {
+ComicPage savePage(String filePath, archive.ArchiveFile file) {
   file.writeContent(filePath);
-
-  final imageFile = File(filePath);
-
-  try {
-    final s = image_size_getter.ImageSizeGetter.getSize(
-        image_size_getter.FileInput(imageFile));
-    return ComicPage(imageFile, Size(s.width.toDouble(), s.height.toDouble()));
-  } on RangeError catch (_) {
-    return ComicPage(imageFile, const Size(100, 100));
-  }
-}
-
-ComicPage savePageOld(String filePath, ArchiveFile file) {
-  final outputStream = OutputFileStream(filePath);
-  file.writeContent(outputStream);
-  outputStream.close();
 
   final imageFile = File(filePath);
 
@@ -60,7 +43,7 @@ class Comic {
     ComicPage? cover;
 
     var pageCount = 0;
-    for (var file in libarchive.getArchiveFiles(archiveFilePath)) {
+    for (var file in archive.getArchiveFiles(archiveFilePath)) {
       if (!file.isFile) {
         continue;
       }

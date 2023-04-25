@@ -5,7 +5,7 @@ import 'dart:math';
 import 'package:collection/collection.dart';
 import 'package:comic_reader/main.dart';
 import 'package:comic_reader/src/comic.dart';
-import 'package:comic_reader/src/libarchive/libarchive.dart' as libarchive;
+import 'package:archive/archive.dart' as archive;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mime/mime.dart' as mime;
@@ -107,8 +107,7 @@ class _ComicViewerRouteState extends State<ComicViewerRoute>
     comicCache.createSync(recursive: true);
 
     try {
-      for (var file
-          in libarchive.getArchiveFiles(widget.comic.archiveFilePath)) {
+      for (var file in archive.getArchiveFiles(widget.comic.archiveFilePath)) {
         if (!file.isFile) {
           continue;
         }
