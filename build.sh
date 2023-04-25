@@ -12,6 +12,9 @@ target="$1"
 
 flutter precache
 flutter build $target --release
+if [[ "$target" == "macos" ]]; then
+    find build/macos/Build/Products/Release/
+fi
 flutter test
 
 if [[ "$target" == "windows" ]]; then
