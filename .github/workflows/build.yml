@@ -15,6 +15,10 @@ jobs:
           channel: 'stable'
       - run: ./build.sh macos
         shell: bash
+      - name: Debugging with ssh
+        uses: lhotari/action-upterm@v1
+        with:
+          limit-access-to-actor: true
       - uses: actions/upload-artifact@v3
         with:
           name: macos-build

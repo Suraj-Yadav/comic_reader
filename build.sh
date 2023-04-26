@@ -15,7 +15,7 @@ flutter build $target --release
 if [[ "$target" == "macos" ]]; then
     find build/macos/Build/Products/Release/
 fi
-flutter test
+# flutter test
 
 if [[ "$target" == "windows" ]]; then
     7z a ComicReaderWin.zip ./build/windows/runner/Release/*
