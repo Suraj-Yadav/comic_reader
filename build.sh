@@ -11,11 +11,8 @@ target="$1"
 ./setup_third_party_libs.sh $target
 
 flutter precache
-flutter build $target --release
-if [[ "$target" == "macos" ]]; then
-    find build/macos/Build/Products/Release/
-fi
-# flutter test
+flutter test
+flutter build $target --release -v
 
 if [[ "$target" == "windows" ]]; then
     7z a ComicReaderWin.zip ./build/windows/runner/Release/*
