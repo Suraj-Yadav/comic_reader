@@ -4,22 +4,22 @@ on:
     tags:
       - "v*"
 jobs:
-  build-release-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: subosito/flutter-action@v2
-        with:
-          architecture: x64
-          channel: 'stable'
-      - run: flutter config --enable-macos-desktop
-      - run: flutter precache
-      - run: flutter build macos --release
-      - run: (cd build/macos/Build/Products/Release/ && zip -r ComicReaderMac.zip "Comic Reader.app")
-      - uses: actions/upload-artifact@v3
-        with:
-          name: macos-build
-          path: build/macos/Build/Products/Release/ComicReaderMac.zip
+  # build-release-macos:
+  #   runs-on: macos-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: subosito/flutter-action@v2
+  #       with:
+  #         architecture: x64
+  #         channel: 'stable'
+  #     - run: flutter config --enable-macos-desktop
+  #     - run: flutter precache
+  #     - run: flutter build macos --release
+  #     - run: (cd build/macos/Build/Products/Release/ && zip -r ComicReaderMac.zip "Comic Reader.app")
+  #     - uses: actions/upload-artifact@v3
+  #       with:
+  #         name: macos-build
+  #         path: build/macos/Build/Products/Release/ComicReaderMac.zip
   build-release-windows:
     runs-on: windows-latest
     steps:
@@ -27,23 +27,17 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-      - run: flutter config --enable-windows-desktop
-      - run: flutter precache
-      - run: flutter build windows --release
-      - run: 7z a ComicReaderWin.zip ./build/windows/runner/Release/*
+      - run: ./build.sh windows
+        shell: bash
       - uses: actions/upload-artifact@v3
         with:
           name: windows-build
           path: ComicReaderWin.zip
   create-release:
     needs:
-      - build-release-macos
       - build-release-windows
     runs-on: macos-latest
     steps:
-      - uses: actions/download-artifact@v3
-        with:
-          name: macos-build
       - uses: actions/download-artifact@v3
         with:
           name: windows-build
@@ -53,5 +47,4 @@ jobs:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
           files: |
-            ComicReaderMac.zip
             ComicReaderWin.zip
