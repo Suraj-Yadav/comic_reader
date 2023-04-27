@@ -13,8 +13,11 @@ A new Flutter FFI plugin project.
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Your Company' => 'email@example.com' }
   s.prepare_command = <<-CMD
-    git clone https://github.com/libarchive/libarchive.git
-    cp --recursive libarchive/libarchive/* Classes
+    mkdir build
+    cd build
+    cmake ../../src
+    make
+    find .
   CMD
 
   # This will ensure the source files in Classes/ are included in the native
@@ -22,8 +25,10 @@ A new Flutter FFI plugin project.
   # paths, so Classes contains a forwarder C file that relatively imports
   # `../src/*` so that the C sources can be shared among all target platforms.
   s.source           = { :path => '.' }
-  s.source_files     = 'Classes/**/*'
+  # s.source_files     = 'Classes/**/*'
   s.dependency 'FlutterMacOS'
+
+  s.vendored_frameworks = 'build/_deps/AWSDK.framework'
 
   s.platform = :osx, '10.11'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }

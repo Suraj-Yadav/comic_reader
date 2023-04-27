@@ -29,5 +29,18 @@ if(APPLE)
     add_subdirectory(${libarchive_SOURCE_DIR} ${libarchive_BINARY_DIR})
   endif()
 
+  set_target_properties(archive PROPERTIES
+    FRAMEWORK TRUE
+    FRAMEWORK_VERSION C
+    MACOSX_FRAMEWORK_IDENTIFIER org.libarchive
+
+    # "current version" in semantic format in Mach-O binary file
+    VERSION 3.6.2
+
+    # "compatibility version" in semantic format in Mach-O binary file
+    SOVERSION 1.0.0
+    PUBLIC_HEADER ${libarchive_SOURCE_DIR}/archive.h,${libarchive_SOURCE_DIR}/archive_entry.h
+  )
+
   target_compile_definitions(archive PUBLIC DART_SHARED_LIB)
 endif()
