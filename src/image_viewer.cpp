@@ -1,31 +1,11 @@
-#include "image_viewer.hpp"
+#include <wx/dcbuffer.h>
 
 #include <algorithm>
 #include <cmath>
-
-#include "image_viewer.hpp"
-#include "viewport.hpp"
-
-using std::cout;
-#define dbg(X) #X, "=", (X)
-inline void print() {}
-template <typename T> void print(T t) { cout << t; }
-template <typename T, typename... Args> void print(T t, Args... args) {
-	cout << t << " ";
-	print(args...);
-}
-template <typename T> inline void printC(T t) {
-	for (auto& elem : t) print(elem, "");
-	cout << std::endl;
-}
-#define println(...)                                                 \
-	{                                                                \
-		print(__FILE__ ":" + std::to_string(__LINE__), __VA_ARGS__); \
-		cout << std::endl;                                           \
-	}
-#define printFuncCall println(__FUNCTION__, "called")
-
-#include <wx/dcbuffer.h>
+#include <fuzzy.hpp>
+#include <image_viewer.hpp>
+#include <util.hpp>
+#include <viewport.hpp>
 
 std::ostream& operator<<(std::ostream& os, const wxRect2DDouble& r) {
 	return os << "[" << r.GetLeft() << "," << r.GetRight() << "]*["
@@ -37,33 +17,25 @@ std::ostream& operator<<(std::ostream& os, const wxPoint2DDouble& p) {
 }
 
 ImageViewer::ImageViewer(wxWindow* parent, const wxString& filePath)
-	: wxPanel(parent, wxID_ANY) {
-	SetSize(100, 100);
-
-	// m_scaleToFit = false;
-	panInProgress = false;
-	firstPaint = true;
-
-	rawBitmap = wxBitmap(filePath, wxBITMAP_TYPE_ANY);
-	imageSize.Set(rawBitmap.GetWidth(), rawBitmap.GetHeight());
-
+	: wxPanel(parent, wxID_ANY),
+	  inProgressPanVector(),
+	  inProgressPanStartPoint(),
+	  panInProgress(false),
+	  firstPaint(true),
+	  filePath(filePath) {
 	Bind(wxEVT_PAINT, &ImageViewer::OnPaint, this);
 	Bind(wxEVT_MOUSEWHEEL, &ImageViewer::OnMouseWheel, this);
 	Bind(wxEVT_LEFT_DOWN, &ImageViewer::OnLeftDown, this);
 	Bind(wxEVT_LEFT_DCLICK, &ImageViewer::OnLeftDClick, this);
 	Bind(wxEVT_SIZE, &ImageViewer::OnSize, this);
-	Bind(wxEVT_CHAR_HOOK, &ImageViewer::OnKeyDown, this);
 
 	SetBackgroundStyle(wxBG_STYLE_PAINT);
-
-	inProgressPanStartPoint = wxPoint(0, 0);
-	inProgressPanVector = wxPoint2DDouble(0, 0);
-	panInProgress = false;
+	SetBackgroundColour(wxColour(25, 25, 25, 1));
+	Show(false);
 }
 
 void ImageViewer::OnSize(wxSizeEvent& event) {
 	printFuncCall;
-	// if (m_scaleToFit) ScaleToFit();
 
 	auto const& cs = GetClientSize();
 	auto const& vs = viewport.GetSize();
@@ -80,32 +52,6 @@ void ImageViewer::OnSize(wxSizeEvent& event) {
 	Refresh();
 
 	event.Skip();
-}
-
-void ImageViewer::OnKeyDown(wxKeyEvent& event) {
-	switch (event.GetKeyCode()) {
-		case 314:
-			// m_panVector.m_x--;
-			break;
-		case 315:
-			// m_panVector.m_y--;
-			break;
-		case 316:
-			// m_panVector.m_x++;
-			break;
-		case 317:
-			// m_panVector.m_y++;
-			break;
-		case 45:
-			// m_ZoomFactor *= 0.5;
-			break;
-		case 61:
-			// m_ZoomFactor *= 2;
-			break;
-	}
-	event.Skip();
-
-	Refresh();
 }
 
 void ImageViewer::OptimizeViewport() {
@@ -147,18 +93,22 @@ void ImageViewer::OnPaint(wxPaintEvent& event) {
 	wxGraphicsRenderer* d2dr = wxGraphicsRenderer::GetDirect2DRenderer();
 	wxGraphicsContext* gc = d2dr->CreateContext(dc);
 
-	// wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
-
 	if (gc) {
 		auto s = GetClientSize();
 
-		OptimizeViewport();
-
 		if (firstPaint) {
+			rawBitmap = wxBitmap(filePath, wxBITMAP_TYPE_ANY);
+			imageSize = wxSize(rawBitmap.GetWidth(), rawBitmap.GetHeight());
 			drawBitmap = gc->CreateBitmap(rawBitmap);
-			viewport = Viewport(s.GetWidth(), 0, s.GetWidth(), s.GetHeight());
+
+			if (viewport.IsEmpty()) {
+				viewport = Viewport(0, 0, s.GetWidth(), s.GetHeight());
+			}
+
 			firstPaint = false;
 		}
+
+		OptimizeViewport();
 
 		wxPoint2DDouble totalPan = viewport.GetLeftTop() + inProgressPanVector;
 
@@ -295,3 +245,50 @@ void ImageViewer::OnCaptureLost(wxMouseCaptureLostEvent&) {
 double ImageViewer::GetZoom() {
 	return GetClientSize().GetWidth() / viewport.m_width;
 }
+
+Navigation ImageViewer::MoveViewport(Navigation direction) {
+	if (direction == Navigation::NextView) {
+		if (fuzzy::greater_equal(viewport.GetRight(), imageSize.GetWidth()) &&
+			fuzzy::greater_equal(viewport.GetBottom(), imageSize.GetHeight())) {
+			return Navigation::NextPage;
+		}
+		if (fuzzy::less(viewport.GetRight(), imageSize.GetWidth())) {
+			viewport.Translate(
+				std::min(
+					viewport.m_width / 2,
+					imageSize.GetWidth() - viewport.GetRight()),
+				0);
+		} else {
+			viewport.Translate(
+				-viewport.GetLeft(),
+				std::min(
+					viewport.m_height / 2,
+					imageSize.GetHeight() - viewport.GetBottom()));
+		}
+	} else if (direction == Navigation::PreviousView) {
+		if (fuzzy::less_equal(viewport.GetLeft(), 0) &&
+			fuzzy::less_equal(viewport.GetTop(), 0)) {
+			return Navigation::PreviousPage;
+		}
+		if (fuzzy::greater(viewport.GetLeft(), 0)) {
+			viewport.Translate(
+				-std::min(viewport.m_width / 2, viewport.GetLeft()), 0);
+		} else {
+			viewport.Translate(
+				imageSize.GetWidth() - viewport.m_width,
+				-std::min(viewport.m_height / 2, viewport.GetTop()));
+		}
+	}
+	if (direction != Navigation::NoOp) {
+		Refresh();
+	}
+	return Navigation::NoOp;
+}
+
+void ImageViewer::SetViewport(const Viewport& v) {
+	printFuncCall;
+	viewport = v;
+}
+
+const Viewport& ImageViewer::GetViewport() const { return viewport; }
+const wxSize& ImageViewer::GetImageSize() const { return imageSize; }

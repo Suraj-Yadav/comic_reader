@@ -1,56 +1,122 @@
-#include <wx/wx.h>
+#include <wx/app.h>
+#include <wx/frame.h>
+#include <wx/progdlg.h>
 
-#include <cxxopts.hpp>
-#include <memory>
+#include <algorithm>
+#include <queue>
+#include <thread>
 
-#include "image_viewer.hpp"
+#include "comic.hpp"
+#include "comic_gallery.hpp"
+#include "comic_viewer.hpp"
+
+const auto CPU_THREADS = std::max(std::thread::hardware_concurrency(), 1u);
 
 class MyApp : public wxApp {
    public:
 	bool OnInit() override;
+	int OnExit() override;
 };
 
 wxIMPLEMENT_APP(MyApp);
 
 class MyFrame : public wxFrame {
+	std::vector<Comic> comics;
+	ComicViewer* comicViewer;
+
    public:
-	MyFrame(std::string imagePath);
+	MyFrame();
+	void LoadComic(const std::filesystem::path& comicPath);
 };
 
+int MyApp::OnExit() {
+	std::filesystem::remove_all(cacheDirectory);
+	std::filesystem::create_directories(cacheDirectory);
+	return 0;
+}
+
 bool MyApp::OnInit() {
+	// std::filesystem::remove_all(cacheDirectory);
 	::wxInitAllImageHandlers();
-	cxxopts::Options options("comic_reader", "A Simple Comic book reader");
-
-	options.add_options()												//
-		("image", "Image File to view", cxxopts::value<std::string>())	//
-		("h,help", "Print usage");
-
-	options.parse_positional("image");
-	options.show_positional_help();
-
-	cxxopts::ParseResult result;
-	try {
-		result = options.parse(argc, argv);
-		if (result.count("help")) {
-			wxMessageBox(options.help(), "Options");
-			return false;
-		}
-		if (result["image"].count() == 0) {
-			wxMessageBox("Need to pass path to image", "Error");
-			return false;
-		}
-	} catch (const std::exception& e) {
-		std::cout << e.what() << std::endl;
-		return false;
+	std::vector<std::filesystem::path> args;
+	args.reserve(argc - 1);
+	for (int i = 1; i < argc; ++i) {
+		args.push_back(argv[i].ToStdString());
 	}
 
-	MyFrame* frame = new MyFrame(result["image"].as<std::string>());
+	auto frame = new MyFrame();
 	frame->Show(true);
-
+	frame->LoadComic(args[0]);
 	return true;
 }
 
-MyFrame::MyFrame(std::string imagePath)
-	: wxFrame(nullptr, wxID_ANY, "Hello World") {
-	new ImageViewer(this, "image.jpg");
+MyFrame::MyFrame() : wxFrame(nullptr, wxID_ANY, ""), comicViewer(nullptr) {}
+
+void MyFrame::LoadComic(const std::filesystem::path& comicPath) {
+	auto paths = std::queue<wxString>();
+	{
+		wxArrayString selectedFiles;
+		wxFileDialog openFileDialog(
+			this, "Open Comic", "", "", "Comic Files (*.cbr;*.cbz)|*.cbr;*.cbz",
+			wxFD_OPEN | wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE);
+
+		if (openFileDialog.ShowModal() == wxID_CANCEL) {
+			return;
+		}
+		openFileDialog.GetPaths(selectedFiles);
+
+		std::sort(selectedFiles.begin(), selectedFiles.end());
+		selectedFiles.erase(
+			std::unique(selectedFiles.begin(), selectedFiles.end()),
+			selectedFiles.end());
+
+		for (auto& e : selectedFiles) {
+			paths.push(e);
+		}
+	}
+
+	wxProgressDialog dialog(
+		"Please wait", "Loading Comics", paths.size(), this);
+
+	std::mutex guard;
+	auto f = [&](bool isMainThread) {
+		for (wxString path; !paths.empty();) {
+			{
+				std::lock_guard<std::mutex> lock(guard);
+				if (paths.empty()) {
+					break;
+				}
+				path = paths.front();
+				paths.pop();
+			}
+			auto c = Comic(path.ToStdString());
+			{
+				std::lock_guard<std::mutex> lock(guard);
+				comics.push_back(c);
+				if (isMainThread) {
+					dialog.Update(comics.size());
+				}
+			}
+		}
+	};
+	std::vector<std::thread> threads;
+	for (auto i = 2u; i < CPU_THREADS; ++i) {
+		threads.emplace_back(f, false);
+	}
+	f(true);
+	for (auto& thread : threads) {
+		thread.join();
+	}
+	dialog.Update(comics.size());
+
+	std::sort(comics.begin(), comics.end());
+
+	std::vector<std::filesystem::path> covers;
+	for (auto& comic : comics) {
+		covers.push_back(comic.coverPage);
+	}
+
+	new ComicGallery(this, covers);
+
+	Layout();
 }
