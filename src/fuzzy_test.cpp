@@ -1,6 +1,6 @@
-#include <gtest/gtest.h>
+#include "fuzzy.hpp"
 
-#include <fuzzy.hpp>
+#include <gtest/gtest.h>
 
 TEST(fuzzy, less) { EXPECT_FALSE(fuzzy::less(1.0000, 1.0001)); }
 

@@ -4,8 +4,11 @@
 #include <filesystem>
 #include <vector>
 
+#include "comic.hpp"
+#include "image_viewer.hpp"
+
 class ComicGallery : public wxPanel {
-	std::vector<std::filesystem::path> paths;
+	std::vector<Comic> comics;
 	int index;
 	std::vector<wxBitmap> bitmaps;
 	std::vector<wxSize> sizes;
@@ -13,11 +16,13 @@ class ComicGallery : public wxPanel {
 
 	void OnPaint(wxPaintEvent& evt);
 	void OnSize(wxSizeEvent& event);
-	void OnKeyDown(wxKeyEvent& event);
 
 	void verify(const wxGraphicsContext* g, int index);
 
    public:
 	ComicGallery(
 		wxWindow* parent, const std::vector<std::filesystem::path>& paths);
+	void loadComics(std::vector<std::filesystem::path> paths);
+	void HandleInput(Navigation);
+	Comic& currentComic() { return comics[index]; }
 };

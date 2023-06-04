@@ -1,12 +1,14 @@
+#include "comic.hpp"
+
 #include <wx/arrstr.h>
 #include <wx/image.h>
 #include <wx/settings.h>
 
-#include <archive.hpp>
-#include <comic.hpp>
 #include <filesystem>
 #include <format>
-#include <util.hpp>
+
+#include "archive.hpp"
+#include "util.hpp"
 
 const int THUMB_DIM =
 	min(wxSystemSettings::GetMetric(wxSYS_SCREEN_X),
@@ -61,6 +63,7 @@ Comic::Comic(const std::filesystem::path& comicPath)
 }
 
 int Comic::length() const { return size; };
+std::string Comic::getName() const { return comicPath.stem().string(); };
 
 void Comic::load(std::function<void(int i)> progress) {
 	pages.clear();
@@ -72,7 +75,7 @@ void Comic::load(std::function<void(int i)> progress) {
 		pages.push_back(extractedCache / file.path());
 		file.writeContent(pages.back());
 		if (progress) {
-			progress(pages.size());
+			progress(pages.size() - 1);
 		}
 	});
 	std::sort(pages.begin(), pages.end(), [](const auto& a, const auto& b) {

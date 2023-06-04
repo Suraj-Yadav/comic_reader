@@ -1,16 +1,15 @@
 #include <wx/app.h>
 #include <wx/frame.h>
-#include <wx/progdlg.h>
 
 #include <algorithm>
-#include <queue>
-#include <thread>
+#include <filesystem>
+#include <vector>
 
 #include "comic.hpp"
 #include "comic_gallery.hpp"
 #include "comic_viewer.hpp"
-
-const auto CPU_THREADS = std::max(std::thread::hardware_concurrency(), 1u);
+#include "image_viewer.hpp"
+#include "util.hpp"
 
 class MyApp : public wxApp {
    public:
@@ -21,41 +20,83 @@ class MyApp : public wxApp {
 wxIMPLEMENT_APP(MyApp);
 
 class MyFrame : public wxFrame {
-	std::vector<Comic> comics;
+	ComicGallery* comicGallery;
 	ComicViewer* comicViewer;
+	wxSizer* sizer;
+
+	void OnKeyDown(wxKeyEvent& event);
 
    public:
 	MyFrame();
-	void LoadComic(const std::filesystem::path& comicPath);
+	void LoadComic();
 };
 
 int MyApp::OnExit() {
 	std::filesystem::remove_all(cacheDirectory);
-	std::filesystem::create_directories(cacheDirectory);
 	return 0;
 }
 
 bool MyApp::OnInit() {
-	// std::filesystem::remove_all(cacheDirectory);
 	::wxInitAllImageHandlers();
-	std::vector<std::filesystem::path> args;
-	args.reserve(argc - 1);
-	for (int i = 1; i < argc; ++i) {
-		args.push_back(argv[i].ToStdString());
-	}
 
 	auto frame = new MyFrame();
 	frame->Show(true);
-	frame->LoadComic(args[0]);
+	frame->LoadComic();
 	return true;
 }
 
-MyFrame::MyFrame() : wxFrame(nullptr, wxID_ANY, ""), comicViewer(nullptr) {}
+MyFrame::MyFrame()
+	: wxFrame(nullptr, wxID_ANY, ""),
+	  comicGallery(nullptr),
+	  comicViewer(nullptr) {
+	Bind(wxEVT_CHAR_HOOK, &MyFrame::OnKeyDown, this);
+}
 
-void MyFrame::LoadComic(const std::filesystem::path& comicPath) {
-	auto paths = std::queue<wxString>();
+void MyFrame::OnKeyDown(wxKeyEvent& event) {
+	switch (event.GetKeyCode()) {
+		case WXK_LEFT:
+			if (comicViewer != nullptr) {
+				comicViewer->HandleInput(Navigation::PreviousView);
+			} else if (comicGallery != nullptr) {
+				comicGallery->HandleInput(Navigation::PreviousComic);
+			}
+			break;
+		case WXK_RIGHT:
+			if (comicViewer != nullptr) {
+				comicViewer->HandleInput(Navigation::NextView);
+			} else if (comicGallery != nullptr) {
+				comicGallery->HandleInput(Navigation::NextComic);
+			}
+			break;
+		case WXK_RETURN:
+			if (comicGallery != nullptr) {
+				comicViewer =
+					new ComicViewer(this, comicGallery->currentComic());
+				comicViewer->load();
+				SetTitle(comicGallery->currentComic().getName());
+				sizer->Add(comicViewer, wxSizerFlags(1).Expand());
+				sizer->Hide(size_t(0));
+				comicViewer->SetFocus();
+				comicViewer->SetFocusFromKbd();
+				Layout();
+			}
+			break;
+		case WXK_ESCAPE:
+			if (comicViewer != nullptr) {
+				sizer->Remove(1);
+				sizer->Show(size_t(0));
+				comicViewer->Destroy();
+				comicViewer = nullptr;
+				Layout();
+			}
+			break;
+	}
+	event.Skip();
+}
+
+void MyFrame::LoadComic() {
+	std::vector<std::filesystem::path> paths;
 	{
-		wxArrayString selectedFiles;
 		wxFileDialog openFileDialog(
 			this, "Open Comic", "", "", "Comic Files (*.cbr;*.cbz)|*.cbr;*.cbz",
 			wxFD_OPEN | wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE);
@@ -63,60 +104,18 @@ void MyFrame::LoadComic(const std::filesystem::path& comicPath) {
 		if (openFileDialog.ShowModal() == wxID_CANCEL) {
 			return;
 		}
+		wxArrayString selectedFiles;
 		openFileDialog.GetPaths(selectedFiles);
 
-		std::sort(selectedFiles.begin(), selectedFiles.end());
-		selectedFiles.erase(
-			std::unique(selectedFiles.begin(), selectedFiles.end()),
-			selectedFiles.end());
-
 		for (auto& e : selectedFiles) {
-			paths.push(e);
+			paths.push_back(e.ToStdString());
 		}
 	}
 
-	wxProgressDialog dialog(
-		"Please wait", "Loading Comics", paths.size(), this);
+	sizer = new wxBoxSizer(wxVERTICAL);
+	comicGallery = new ComicGallery(this, paths);
+	sizer->Add(comicGallery, wxSizerFlags(1).Expand());
 
-	std::mutex guard;
-	auto f = [&](bool isMainThread) {
-		for (wxString path; !paths.empty();) {
-			{
-				std::lock_guard<std::mutex> lock(guard);
-				if (paths.empty()) {
-					break;
-				}
-				path = paths.front();
-				paths.pop();
-			}
-			auto c = Comic(path.ToStdString());
-			{
-				std::lock_guard<std::mutex> lock(guard);
-				comics.push_back(c);
-				if (isMainThread) {
-					dialog.Update(comics.size());
-				}
-			}
-		}
-	};
-	std::vector<std::thread> threads;
-	for (auto i = 2u; i < CPU_THREADS; ++i) {
-		threads.emplace_back(f, false);
-	}
-	f(true);
-	for (auto& thread : threads) {
-		thread.join();
-	}
-	dialog.Update(comics.size());
-
-	std::sort(comics.begin(), comics.end());
-
-	std::vector<std::filesystem::path> covers;
-	for (auto& comic : comics) {
-		covers.push_back(comic.coverPage);
-	}
-
-	new ComicGallery(this, covers);
-
+	SetSizer(sizer);
 	Layout();
 }

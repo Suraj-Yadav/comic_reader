@@ -1,41 +1,77 @@
 #include "comic_gallery.hpp"
 
 #include <wx/dcbuffer.h>
+#include <wx/progdlg.h>
+
+#include <algorithm>
+#include <thread>
 
 #include "comic.hpp"
+#include "util.hpp"
 
-void ComicGallery::OnKeyDown(wxKeyEvent& event) {
-	switch (event.GetKeyCode()) {
-		case WXK_LEFT:
-			index = std::max(index - 1, 0);
-			break;
-		case WXK_RIGHT:
-			index = std::min(index + 1, int(paths.size() - 1));
-			break;
-	}
-	event.Skip();
-	Refresh();
-}
+const auto MAX_CPU_THREADS = std::max(std::thread::hardware_concurrency(), 1u);
 
 ComicGallery::ComicGallery(
 	wxWindow* parent, const std::vector<std::filesystem::path>& paths)
 	: wxPanel(parent),
-	  paths(paths),
 	  index(0),
 	  bitmaps(paths.size()),
 	  sizes(paths.size()),
 	  gBitmaps(paths.size()) {
 	Bind(wxEVT_PAINT, &ComicGallery::OnPaint, this);
 	Bind(wxEVT_SIZE, &ComicGallery::OnSize, this);
-	Bind(wxEVT_CHAR_HOOK, &ComicGallery::OnKeyDown, this);
 
 	SetBackgroundStyle(wxBG_STYLE_PAINT);
 	SetBackgroundColour(wxColour(25, 25, 25, 1));
+
+	loadComics(paths);
+}
+
+void ComicGallery::loadComics(std::vector<std::filesystem::path> paths) {
+	std::sort(paths.begin(), paths.end());
+	paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
+
+	wxProgressDialog dialog(
+		"Please wait", "Loading Comics", paths.size(), this);
+
+	std::mutex guard;
+	auto f = [&](bool isMainThread) {
+		for (std::filesystem::path path; !paths.empty();) {
+			{
+				std::lock_guard<std::mutex> lock(guard);
+				if (paths.empty()) {
+					break;
+				}
+				path = paths.back();
+				paths.pop_back();
+			}
+			auto c = Comic(path);
+			{
+				std::lock_guard<std::mutex> lock(guard);
+				comics.push_back(c);
+				if (isMainThread) {
+					dialog.Update(comics.size());
+				}
+			}
+		}
+	};
+	std::vector<std::thread> threads;
+	for (auto i = 2u; i < MAX_CPU_THREADS; ++i) {
+		threads.emplace_back(f, false);
+	}
+	f(true);
+	for (auto& thread : threads) {
+		thread.join();
+	}
+	dialog.Update(comics.size());
+
+	std::sort(comics.begin(), comics.end());
+	index = 0;
 }
 
 void ComicGallery::verify(const wxGraphicsContext* gc, int i) {
 	if (!bitmaps[i].IsOk()) {
-		bitmaps[i].LoadFile(paths[i].string(), wxBITMAP_TYPE_ANY);
+		bitmaps[i].LoadFile(comics[i].coverPage.string(), wxBITMAP_TYPE_ANY);
 		const auto& b = bitmaps[i];
 		sizes[i].Set(b.GetWidth(), b.GetHeight());
 		gBitmaps[i] = gc->CreateBitmap(b);
@@ -100,6 +136,10 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 	const double FOCUSED_COMIC = 0.9, REST_COMIC = 0.7;
 	const double GAP = 0.1 * THUMB_DIM;
 
+	if (comics.empty()) {
+		return;
+	}
+
 	wxAutoBufferedPaintDC dc(this);
 	dc.Clear();
 
@@ -111,14 +151,13 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 		const auto cw = GetClientSize().GetWidth();
 		const auto ch = GetClientSize().GetHeight();
 
-		auto textHeight =
-			drawWrappedText(paths[index].stem().string(), gc, cw, ch);
+		auto textHeight = drawWrappedText(comics[index].getName(), gc, cw, ch);
 
 		verify(gc, index);
 
-		std::vector<wxRealPoint> pos(paths.size());
-		std::vector<double> scale(paths.size(), 1);
-		std::vector<double> width(paths.size(), 0);
+		std::vector<wxRealPoint> pos(comics.size());
+		std::vector<double> scale(comics.size(), 1);
+		std::vector<double> width(comics.size(), 0);
 		std::vector<int> coversToDraw;
 
 		{
@@ -132,7 +171,7 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 			coversToDraw.push_back(index);
 		}
 
-		for (auto i = index + 1; i < paths.size(); ++i) {
+		for (auto i = index + 1; i < comics.size(); ++i) {
 			verify(gc, i);
 			const auto iw = sizes[i].GetWidth();
 			const auto ih = sizes[i].GetHeight();
@@ -177,6 +216,20 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 
 		delete gc;
 	}
+}
+
+void ComicGallery::HandleInput(Navigation input) {
+	switch (input) {
+		case Navigation::PreviousComic:
+			index = std::max(index - 1, 0);
+			break;
+		case Navigation::NextComic:
+			index = std::min(index + 1, int(comics.size() - 1));
+			break;
+		default:
+			return;
+	}
+	Refresh();
 }
 
 void ComicGallery::OnSize(wxSizeEvent& event) { Refresh(); }

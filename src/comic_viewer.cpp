@@ -1,63 +1,51 @@
+#include "comic_viewer.hpp"
+
 #include <wx/progdlg.h>
 
-#include <comic_viewer.hpp>
-#include <image_viewer.hpp>
-#include <util.hpp>
+#include "image_viewer.hpp"
+#include "util.hpp"
 
-ComicViewer::ComicViewer(
-	wxWindow* parent, const std::filesystem::path& comicPath)
+ComicViewer::ComicViewer(wxWindow* parent, Comic& comic)
 	: wxPanel(parent),
-	  comic(comicPath),
+	  comic(comic),
 	  index(0),
 	  sizer(new wxBoxSizer(wxHORIZONTAL)) {
 	SetSizer(sizer);
-	Bind(wxEVT_CHAR_HOOK, &ComicViewer::OnKeyDown, this);
+	Bind(wxEVT_MOUSEWHEEL, [](wxMouseEvent&) { printFuncCall; });
+	Bind(wxEVT_LEFT_DOWN, [](wxMouseEvent&) { printFuncCall; });
+	Bind(wxEVT_LEFT_DCLICK, [](wxMouseEvent&) { printFuncCall; });
 }
 
 int ComicViewer::length() const { return comic.length(); };
 
 void ComicViewer::load() {
 	wxProgressDialog dialog(
-		_("Please wait"), _("Loading Comic"), comic.length() + 1, this);
+		"Loading Comic", "Loading Pages", comic.length() * 2, this);
 	imageViewers.reserve(comic.length());
 
-	comic.load([&](int i) {
-		imageViewers.push_back(
-			new ImageViewer(this, comic.pages.back().string()));
+	comic.load([&](int i) { dialog.Update(i + 1); });
+	for (auto i = 0; i < comic.length(); ++i) {
+		const auto& page = comic.pages[i];
+		imageViewers.push_back(new ImageViewer(this, page.string()));
 		sizer->Add(imageViewers.back(), 1, wxEXPAND);
-		dialog.Update(1 + imageViewers.size());
-		if (i == 1) {
-			sizer->Show(size_t(0), true);
-			Layout();
-		} else {
-			sizer->Show(size_t(i - 1), false);
-		}
-		dialog.Update(i);
-	});
+		dialog.Update(i + 1 + comic.length(), "Sorting Pages");
+		sizer->Show(size_t(i), false);
+	}
+	sizer->Show(size_t(0), true);
 	Layout();
 }
 
-void ComicViewer::OnKeyDown(wxKeyEvent& event) {
-	auto nextIndex = index;
+void ComicViewer::HandleInput(Navigation input) {
 	auto dir = Navigation::NoOp;
-
-	// println(dbg(event.GetKeyCode()));
-
-	switch (event.GetKeyCode()) {
-		case 314:
-			dir = imageViewers[index]->MoveViewport(Navigation::PreviousView);
+	switch (input) {
+		case Navigation::NextView:
+		case Navigation::PreviousView:
+			dir = imageViewers[index]->MoveViewport(input);
 			break;
-		case 316:
-			dir = imageViewers[index]->MoveViewport(Navigation::NextView);
-			break;
-		case 315:
-			// m_panVector.m_y--;
-			break;
-		case 317:
-			// m_panVector.m_y++;
-			break;
+		default:
+			dir = input;
 	}
-
+	auto nextIndex = index;
 	if (dir == Navigation::NextPage) {
 		nextIndex = std::min(index + 1, int(comic.pages.size()) - 1);
 	} else if (dir == Navigation::PreviousPage) {
@@ -80,5 +68,4 @@ void ComicViewer::OnKeyDown(wxKeyEvent& event) {
 		index = nextIndex;
 		Layout();
 	}
-	event.Skip();
 }

@@ -1,12 +1,14 @@
+#include "archive.hpp"
+
 #include <wx/mimetype.h>
 
-#include <archive.hpp>
 #include <array>
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <stdexcept>
-#include <util.hpp>
+
+#include "util.hpp"
 
 std::string getMimeType(const std::filesystem::path& filePath) {
 	auto f = wxTheMimeTypesManager->GetFileTypeFromExtension(

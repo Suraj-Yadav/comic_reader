@@ -2,21 +2,21 @@
 
 #include <wx/wx.h>
 
-#include <comic.hpp>
 #include <filesystem>
 #include <functional>
-#include <image_viewer.hpp>
+
+#include "comic.hpp"
+#include "image_viewer.hpp"
 
 class ComicViewer : public wxPanel {
-	void OnKeyDown(wxKeyEvent&);
-
-	Comic comic;
+	Comic& comic;
 	std::vector<ImageViewer*> imageViewers;
 	int index;
 	wxSizer* sizer;
 
    public:
-	ComicViewer(wxWindow* parent, const std::filesystem::path& comicPath);
+	ComicViewer(wxWindow* parent, Comic& comic);
 	int length() const;
 	void load();
+	void HandleInput(Navigation);
 };

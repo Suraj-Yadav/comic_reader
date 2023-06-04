@@ -1,11 +1,13 @@
+#include "image_viewer.hpp"
+
 #include <wx/dcbuffer.h>
 
 #include <algorithm>
 #include <cmath>
-#include <fuzzy.hpp>
-#include <image_viewer.hpp>
-#include <util.hpp>
-#include <viewport.hpp>
+
+#include "fuzzy.hpp"
+#include "util.hpp"
+#include "viewport.hpp"
 
 std::ostream& operator<<(std::ostream& os, const wxRect2DDouble& r) {
 	return os << "[" << r.GetLeft() << "," << r.GetRight() << "]*["
@@ -35,6 +37,9 @@ ImageViewer::ImageViewer(wxWindow* parent, const wxString& filePath)
 }
 
 void ImageViewer::OnSize(wxSizeEvent& event) {
+	if (viewport.IsEmpty()) {
+		return;
+	}
 	printFuncCall;
 
 	auto const& cs = GetClientSize();
@@ -94,7 +99,7 @@ void ImageViewer::OnPaint(wxPaintEvent& event) {
 	wxGraphicsContext* gc = d2dr->CreateContext(dc);
 
 	if (gc) {
-		auto s = GetClientSize();
+		auto cs = GetClientSize();
 
 		if (firstPaint) {
 			rawBitmap = wxBitmap(filePath, wxBITMAP_TYPE_ANY);
@@ -102,7 +107,8 @@ void ImageViewer::OnPaint(wxPaintEvent& event) {
 			drawBitmap = gc->CreateBitmap(rawBitmap);
 
 			if (viewport.IsEmpty()) {
-				viewport = Viewport(0, 0, s.GetWidth(), s.GetHeight());
+				viewport = Viewport(0, 0, cs.GetWidth(), cs.GetHeight());
+				NextZoom(wxPoint());
 			}
 
 			firstPaint = false;
@@ -180,7 +186,12 @@ void ImageViewer::FinishPan(bool refresh) {
 
 void ImageViewer::OnLeftDClick(wxMouseEvent& event) {
 	printFuncCall;
+	NextZoom(event.GetPosition());
+	Refresh();
+	event.Skip();
+}
 
+void ImageViewer::NextZoom(const wxPoint& pt) {
 	auto cs = GetClientSize();
 
 	auto currentZoom = GetZoom();
@@ -203,11 +214,7 @@ void ImageViewer::OnLeftDClick(wxMouseEvent& event) {
 		}
 	}
 
-	viewport.ScaleAtPoint(
-		MapClientToViewport(event.GetPosition()), currentZoom / nextZoom);
-
-	Refresh();
-	event.Skip();
+	viewport.ScaleAtPoint(MapClientToViewport(pt), currentZoom / nextZoom);
 }
 
 void ImageViewer::OnLeftDown(wxMouseEvent& event) {

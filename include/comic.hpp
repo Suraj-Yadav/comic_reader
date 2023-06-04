@@ -14,6 +14,7 @@ class Comic {
 	Comic(const std::filesystem::path& comicPath);
 	void load(std::function<void(int i)> progress = nullptr);
 	int length() const;
+	std::string getName() const;
 	std::filesystem::path coverPage;
 	std::vector<std::filesystem::path> pages;
 

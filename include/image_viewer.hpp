@@ -3,7 +3,7 @@
 #include <wx/graphics.h>
 #include <wx/wx.h>
 
-#include <viewport.hpp>
+#include "viewport.hpp"
 
 enum Navigation {
 	NextComic,		// Move to next Comic
@@ -41,6 +41,7 @@ class ImageViewer : public wxPanel {
 	void FinishPan(bool);
 
 	void OptimizeViewport();
+	void NextZoom(const wxPoint&);
 	wxPoint2DDouble MapClientToViewport(const wxPoint&);
 	double GetZoom();
 
