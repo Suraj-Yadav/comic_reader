@@ -217,6 +217,7 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 		delete gc;
 	}
 }
+void ComicGallery::OnSize(wxSizeEvent& event) { Refresh(); }
 
 void ComicGallery::HandleInput(Navigation input) {
 	switch (input) {
@@ -231,5 +232,3 @@ void ComicGallery::HandleInput(Navigation input) {
 	}
 	Refresh();
 }
-
-void ComicGallery::OnSize(wxSizeEvent& event) { Refresh(); }

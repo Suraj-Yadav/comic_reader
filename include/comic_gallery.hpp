@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "comic.hpp"
-#include "image_viewer.hpp"
+#include "comic_viewer.hpp"
 
 class ComicGallery : public wxPanel {
 	std::vector<Comic> comics;

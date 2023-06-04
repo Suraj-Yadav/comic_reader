@@ -8,7 +8,6 @@
 #include "comic.hpp"
 #include "comic_gallery.hpp"
 #include "comic_viewer.hpp"
-#include "image_viewer.hpp"
 #include "util.hpp"
 
 class MyApp : public wxApp {
@@ -69,7 +68,7 @@ void MyFrame::OnKeyDown(wxKeyEvent& event) {
 			}
 			break;
 		case WXK_RETURN:
-			if (comicGallery != nullptr) {
+			if (comicGallery != nullptr && comicViewer == nullptr) {
 				comicViewer =
 					new ComicViewer(this, comicGallery->currentComic());
 				comicViewer->load();

@@ -15,7 +15,6 @@ add_library(common_lib STATIC
     src/comic_viewer.cpp
     src/comic.cpp
     src/fuzzy.cpp
-    src/image_viewer.cpp
     src/viewport.cpp
 )
 target_link_libraries(common_lib PUBLIC wx::core wx::base wx::ribbon LibArchive::LibArchive)
