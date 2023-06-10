@@ -5,9 +5,11 @@ project(comic_reader LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
-find_package(wxWidgets CONFIG REQUIRED)
+find_package(benchmark CONFIG REQUIRED)
+find_package(freeimage CONFIG REQUIRED)
 find_package(GTest CONFIG REQUIRED)
 find_package(LibArchive REQUIRED)
+find_package(wxWidgets CONFIG REQUIRED)
 
 add_library(common_lib STATIC
     src/archive.cpp
@@ -15,9 +17,11 @@ add_library(common_lib STATIC
     src/comic_viewer.cpp
     src/comic.cpp
     src/fuzzy.cpp
+    src/image_utils.cpp
     src/viewport.cpp
 )
-target_link_libraries(common_lib PUBLIC wx::core wx::base wx::ribbon LibArchive::LibArchive)
+target_link_libraries(common_lib PUBLIC wx::core wx::base freeimage::FreeImagePlus LibArchive::LibArchive)
+
 target_include_directories(common_lib PUBLIC "${CMAKE_SOURCE_DIR}/include")
 
 add_executable(comic_reader WIN32 src/main.cpp)
@@ -27,12 +31,20 @@ if(MSVC)
     target_sources(comic_reader PRIVATE src/main.manifest)
 endif()
 
-# Setup Test and coverage
-add_executable(tests
+# Setup Test, coverage and benchmarks
+SET(TEST_SRCS
     src/archive_test.cpp
+    src/comic_test.cpp
     src/fuzzy_test.cpp
 )
-target_link_libraries(tests PRIVATE common_lib GTest::gtest_main)
+
+add_executable(tests ${TEST_SRCS})
+target_link_libraries(tests PRIVATE
+    common_lib GTest::gtest benchmark::benchmark GTest::gtest_main)
+
+add_executable(benchmarks ${TEST_SRCS})
+target_link_libraries(benchmarks PRIVATE
+    common_lib GTest::gtest benchmark::benchmark benchmark::benchmark_main)
 
 if(MSVC)
     add_custom_target(

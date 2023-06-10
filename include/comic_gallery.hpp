@@ -4,16 +4,18 @@
 #include <filesystem>
 #include <vector>
 
+#include "animator.hpp"
 #include "comic.hpp"
 #include "comic_viewer.hpp"
 
 class ComicGallery : public wxPanel {
 	std::vector<Comic> comics;
 	int index;
+	float animatingIndex;
 	std::vector<wxBitmap> bitmaps;
 	std::vector<wxSize> sizes;
 	std::vector<wxGraphicsBitmap> gBitmaps;
-
+	Animator<float> animator;
 	void OnPaint(wxPaintEvent& evt);
 	void OnSize(wxSizeEvent& event);
 
@@ -23,6 +25,6 @@ class ComicGallery : public wxPanel {
 	ComicGallery(
 		wxWindow* parent, const std::vector<std::filesystem::path>& paths);
 	void loadComics(std::vector<std::filesystem::path> paths);
-	void HandleInput(Navigation);
+	void HandleInput(Navigation input, char ch = ' ');
 	Comic& currentComic() { return comics[index]; }
 };

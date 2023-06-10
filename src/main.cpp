@@ -2,6 +2,7 @@
 #include <wx/frame.h>
 
 #include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <vector>
 
@@ -89,6 +90,13 @@ void MyFrame::OnKeyDown(wxKeyEvent& event) {
 				Layout();
 			}
 			break;
+		default: {
+			unsigned char ch = event.GetKeyCode();
+			if (std::isalpha(ch) && comicGallery != nullptr) {
+				comicGallery->HandleInput(
+					Navigation::JumpToComic, event.GetKeyCode());
+			}
+		} break;
 	}
 	event.Skip();
 }
@@ -100,15 +108,11 @@ void MyFrame::LoadComic() {
 			this, "Open Comic", "", "", "Comic Files (*.cbr;*.cbz)|*.cbr;*.cbz",
 			wxFD_OPEN | wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE);
 
-		if (openFileDialog.ShowModal() == wxID_CANCEL) {
-			return;
-		}
+		if (openFileDialog.ShowModal() == wxID_CANCEL) { return; }
 		wxArrayString selectedFiles;
 		openFileDialog.GetPaths(selectedFiles);
 
-		for (auto& e : selectedFiles) {
-			paths.push_back(e.ToStdString());
-		}
+		for (auto& e : selectedFiles) { paths.push_back(e.ToStdString()); }
 	}
 
 	sizer = new wxBoxSizer(wxVERTICAL);

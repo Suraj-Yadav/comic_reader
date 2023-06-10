@@ -12,6 +12,7 @@
 enum Navigation {
 	NextComic,		// Move to next Comic
 	PreviousComic,	// Move to previous Comic
+	JumpToComic,	// Jump to particular Comic
 	Back,			// Go back one route
 	NextPage,		// Move to next page
 	PreviousPage,	// Move to previous page

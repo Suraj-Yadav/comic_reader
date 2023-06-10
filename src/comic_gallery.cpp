@@ -4,9 +4,13 @@
 #include <wx/progdlg.h>
 
 #include <algorithm>
+#include <cmath>
+#include <queue>
 #include <thread>
 
 #include "comic.hpp"
+#include "comic_viewer.hpp"
+#include "fuzzy.hpp"
 #include "util.hpp"
 
 const auto MAX_CPU_THREADS = std::max(std::thread::hardware_concurrency(), 1u);
@@ -39,9 +43,7 @@ void ComicGallery::loadComics(std::vector<std::filesystem::path> paths) {
 		for (std::filesystem::path path; !paths.empty();) {
 			{
 				std::lock_guard<std::mutex> lock(guard);
-				if (paths.empty()) {
-					break;
-				}
+				if (paths.empty()) { break; }
 				path = paths.back();
 				paths.pop_back();
 			}
@@ -49,9 +51,7 @@ void ComicGallery::loadComics(std::vector<std::filesystem::path> paths) {
 			{
 				std::lock_guard<std::mutex> lock(guard);
 				comics.push_back(c);
-				if (isMainThread) {
-					dialog.Update(comics.size());
-				}
+				if (isMainThread) { dialog.Update(comics.size()); }
 			}
 		}
 	};
@@ -60,12 +60,12 @@ void ComicGallery::loadComics(std::vector<std::filesystem::path> paths) {
 		threads.emplace_back(f, false);
 	}
 	f(true);
-	for (auto& thread : threads) {
-		thread.join();
-	}
+	for (auto& thread : threads) { thread.join(); }
 	dialog.Update(comics.size());
 
-	std::sort(comics.begin(), comics.end());
+	std::sort(comics.begin(), comics.end(), [](const auto& a, const auto& b) {
+		return wxCmpNatural(a.getName(), b.getName()) < 0;
+	});
 	index = 0;
 }
 
@@ -84,9 +84,7 @@ std::vector<std::pair<std::string, double>> split(
 	std::vector<std::pair<std::string, double>> words(1);
 	double space = 0.0;
 	for (auto i = 0u; i < text.size(); ++i) {
-		if (text[i] == ' ') {
-			space = widths[i];
-		}
+		if (text[i] == ' ') { space = widths[i]; }
 		if (std::isspace(text[i]) && !words.back().first.empty()) {
 			words.emplace_back();
 		}
@@ -106,6 +104,10 @@ std::vector<std::pair<std::string, double>> split(
 		}
 	}
 	return compressed;
+}
+
+template <typename T, typename U> T mix(T x, T y, U a) {
+	return x * (1 - a) + a * y;
 }
 
 double drawWrappedText(
@@ -134,11 +136,8 @@ double drawWrappedText(
 
 void ComicGallery::OnPaint(wxPaintEvent& event) {
 	const double FOCUSED_COMIC = 0.9, REST_COMIC = 0.7;
-	const double GAP = 0.1 * THUMB_DIM;
 
-	if (comics.empty()) {
-		return;
-	}
+	if (comics.empty()) { return; }
 
 	wxAutoBufferedPaintDC dc(this);
 	dc.Clear();
@@ -151,58 +150,81 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 		const auto cw = GetClientSize().GetWidth();
 		const auto ch = GetClientSize().GetHeight();
 
-		auto textHeight = drawWrappedText(comics[index].getName(), gc, cw, ch);
+		int idx = index, nextIdx = index;
+		float frac = 0.0f;
 
-		verify(gc, index);
+		if (animator.IsRunning()) {
+			idx = static_cast<int>(std::floor(animatingIndex));
+			nextIdx = static_cast<int>(std::ceil(animatingIndex));
+			frac = animatingIndex - idx;
+		}
+
+		auto textHeight = drawWrappedText(comics[idx].getName(), gc, cw, ch);
+		const double GAP = 0.1 * (ch - textHeight);
 
 		std::vector<wxRealPoint> pos(comics.size());
 		std::vector<double> scale(comics.size(), 1);
 		std::vector<double> width(comics.size(), 0);
+
+		std::queue<int> coversToConsider;
 		std::vector<int> coversToDraw;
 
 		{
-			const auto iw = sizes[index].GetWidth();
-			const auto ih = sizes[index].GetHeight();
+			verify(gc, idx);
+			const auto iw = sizes[idx].GetWidth();
+			const auto ih = sizes[idx].GetHeight();
 
-			scale[index] = FOCUSED_COMIC * double(ch - textHeight) / ih;
-			pos[index].x = 0.5 * cw;
-			pos[index].y = 0.5 * (ch - textHeight);
-			width[index] = scale[index] * iw;
-			coversToDraw.push_back(index);
+			scale[idx] = double(ch - textHeight) / ih;
+			scale[idx] *= mix(FOCUSED_COMIC, REST_COMIC, frac);
+
+			width[idx] = scale[idx] * iw;
+
+			pos[idx].x = 0.5 * cw;
+			pos[idx].y = 0.5 * (ch - textHeight);
 		}
 
-		for (auto i = index + 1; i < comics.size(); ++i) {
+		coversToConsider.push(idx + 1);
+		coversToConsider.push(idx - 1);
+
+		while (coversToConsider.size() > 0) {
+			auto i = coversToConsider.front();
+			coversToConsider.pop();
+
+			if (i < 0 || i >= comics.size()) continue;
 			verify(gc, i);
+
+			auto sgn = i > idx ? 1 : -1;
+
 			const auto iw = sizes[i].GetWidth();
 			const auto ih = sizes[i].GetHeight();
 
-			scale[i] = REST_COMIC * double(ch - textHeight) / ih;
-			pos[i].x = pos[i - 1].x + width[i - 1] + GAP * scale[i];
-			pos[i].y = pos[i - 1].y;
-			width[i] = scale[i] * iw;
-			if ((pos[i].x - width[i] / 2) > cw) {
-				break;
+			scale[i] = double(ch - textHeight) / ih;
+			if (i == nextIdx) {
+				scale[i] *= mix(REST_COMIC, FOCUSED_COMIC, frac);
+			} else {
+				scale[i] *= REST_COMIC;
 			}
-			coversToDraw.push_back(i);
-		}
 
-		for (auto i = index - 1; i >= 0; --i) {
-			verify(gc, i);
-			const auto iw = sizes[i].GetWidth();
-			const auto ih = sizes[i].GetHeight();
-
-			scale[i] = REST_COMIC * double(ch - textHeight) / ih;
-			pos[i].x = pos[i + 1].x - width[i + 1] - GAP * scale[i];
-			pos[i].y = pos[i + 1].y;
 			width[i] = scale[i] * iw;
-			if ((pos[i].x + width[i] / 2) < 0) {
-				break;
+
+			pos[i].x = pos[i - sgn].x +
+					   sgn * (0.5 * (width[i - sgn] + width[i]) + GAP);
+			pos[i].y = pos[i - sgn].y;
+
+			if ((sgn > 0 && (pos[i].x - width[i] / 2) <= cw) ||
+				(sgn < 0 && (pos[i].x + width[i] / 2) >= 0)) {
+				coversToDraw.push_back(i);
+				coversToConsider.push(i + sgn);
 			}
-			coversToDraw.push_back(i);
+			if (i == nextIdx) {
+				auto delta = frac * (pos[nextIdx].x - pos[idx].x);
+				pos[i].x -= delta;
+				pos[idx].x -= delta;
+			}
 		}
+		coversToDraw.push_back(idx);
 
 		gc->SetInterpolationQuality(wxINTERPOLATION_BEST);
-
 		for (auto& i : coversToDraw) {
 			const auto iw = sizes[i].GetWidth();
 			const auto ih = sizes[i].GetHeight();
@@ -219,16 +241,38 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 }
 void ComicGallery::OnSize(wxSizeEvent& event) { Refresh(); }
 
-void ComicGallery::HandleInput(Navigation input) {
+void ComicGallery::HandleInput(Navigation input, char ch) {
+	if (animator.IsRunning()) { return; }
+
+	auto nextIndex = index;
 	switch (input) {
 		case Navigation::PreviousComic:
-			index = std::max(index - 1, 0);
+			nextIndex = std::max(index - 1, 0);
 			break;
 		case Navigation::NextComic:
-			index = std::min(index + 1, int(comics.size() - 1));
+			nextIndex = std::min(index + 1, int(comics.size() - 1));
 			break;
+		case Navigation::JumpToComic: {
+			auto itr =
+				std::find_if(comics.begin(), comics.end(), [ch](const auto& c) {
+					return wxCmpNatural(wxString(ch), c.getName()) < 0;
+				});
+			if (itr == comics.end()) { itr--; }
+			nextIndex = std::distance(comics.begin(), itr);
+			break;
+		}
 		default:
 			return;
 	}
-	Refresh();
+	if (index != nextIndex) {
+		animator.Start(200, index, nextIndex);
+		animator.SetOnStep([this](float v) {
+			animatingIndex = v;
+			Refresh();
+		});
+		animator.SetOnEnd([this, nextIndex]() {
+			index = nextIndex;
+			Refresh();
+		});
+	}
 }

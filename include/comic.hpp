@@ -17,6 +17,4 @@ class Comic {
 	std::string getName() const;
 	std::filesystem::path coverPage;
 	std::vector<std::filesystem::path> pages;
-
-	inline bool operator<(const Comic& b) { return comicPath < b.comicPath; }
 };
