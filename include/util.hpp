@@ -20,3 +20,5 @@ template <typename T> inline void printC(T t) {
 		cout << std::endl;                                           \
 	}
 #define printFuncCall println(__FUNCTION__, "called")
+
+template <typename T> int sgn(T val) { return (T(0) < val) - (val < T(0)); }

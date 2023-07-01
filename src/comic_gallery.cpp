@@ -12,16 +12,13 @@
 #include "comic_viewer.hpp"
 #include "fuzzy.hpp"
 #include "util.hpp"
+#include "wxUtil.hpp"
 
 const auto MAX_CPU_THREADS = std::max(std::thread::hardware_concurrency(), 1u);
 
 ComicGallery::ComicGallery(
 	wxWindow* parent, const std::vector<std::filesystem::path>& paths)
-	: wxPanel(parent),
-	  index(0),
-	  bitmaps(paths.size()),
-	  sizes(paths.size()),
-	  gBitmaps(paths.size()) {
+	: wxPanel(parent), index(0) {
 	Bind(wxEVT_PAINT, &ComicGallery::OnPaint, this);
 	Bind(wxEVT_SIZE, &ComicGallery::OnSize, this);
 
@@ -61,77 +58,29 @@ void ComicGallery::loadComics(std::vector<std::filesystem::path> paths) {
 	}
 	f(true);
 	for (auto& thread : threads) { thread.join(); }
-	dialog.Update(comics.size());
 
 	std::sort(comics.begin(), comics.end(), [](const auto& a, const auto& b) {
 		return wxCmpNatural(a.getName(), b.getName()) < 0;
 	});
+	for (auto& c : comics) { pool.addImage(c.coverPage); }
+	dialog.Update(comics.size());
 	index = 0;
 }
 
 void ComicGallery::verify(const wxGraphicsContext* gc, int i) {
-	if (!bitmaps[i].IsOk()) {
-		bitmaps[i].LoadFile(comics[i].coverPage.string(), wxBITMAP_TYPE_ANY);
-		const auto& b = bitmaps[i];
-		sizes[i].Set(b.GetWidth(), b.GetHeight());
-		gBitmaps[i] = gc->CreateBitmap(b);
-	}
-}
-
-std::vector<std::pair<std::string, double>> split(
-	const std::string& text, const wxArrayDouble& widths,  //
-	const int cw, const int ch) {
-	std::vector<std::pair<std::string, double>> words(1);
-	double space = 0.0;
-	for (auto i = 0u; i < text.size(); ++i) {
-		if (text[i] == ' ') { space = widths[i]; }
-		if (std::isspace(text[i]) && !words.back().first.empty()) {
-			words.emplace_back();
-		}
-		if (!std::isspace(text[i])) {
-			words.back().first += text[i];
-			words.back().second += widths[i];
-		}
-	}
-
-	std::vector<std::pair<std::string, double>> compressed(1, words[0]);
-	for (auto i = 1u; i < words.size(); ++i) {
-		if ((compressed.back().second + space + words[i].second) < cw) {
-			compressed.back().first += " " + words[i].first;
-			compressed.back().second += space + words[i].second;
-		} else {
-			compressed.push_back(words[i]);
-		}
-	}
-	return compressed;
+	// if (gBitmaps[i].IsNull()) {
+	// 	if (!bitmaps[i].LoadFile(
+	// 			comics[i].coverPage.string(), wxBITMAP_TYPE_ANY)) {
+	// 		bitmaps[i] = wxBitmap();
+	// 	}
+	// 	const auto& b = bitmaps[i];
+	// 	sizes[i].Set(b.GetWidth(), b.GetHeight());
+	// 	gBitmaps[i] = gc->CreateBitmap(b);
+	// }
 }
 
 template <typename T, typename U> T mix(T x, T y, U a) {
 	return x * (1 - a) + a * y;
-}
-
-double drawWrappedText(
-	const std::string& text, wxGraphicsContext* gc, const int cw,
-	const int ch) {
-	gc->SetFont(
-		gc->CreateFont(wxFontInfo(15).Family(wxFONTFAMILY_DEFAULT), *wxWHITE));
-	double w, h, d, e;
-	gc->GetTextExtent(text, &w, &h, &d, &e);
-
-	wxArrayDouble widths;
-	gc->GetPartialTextExtents(text, widths);
-	for (auto i = widths.size() - 1; i > 0; --i) {
-		widths[i] = widths[i] - widths[i - 1];
-	}
-
-	auto words = split(text, widths, cw, ch);
-
-	double y = ch - words.size() * (h + d + e);
-	for (auto& elem : words) {
-		gc->DrawText(elem.first, cw / 2.0 - elem.second / 2, y);
-		y += h + d + e;
-	}
-	return words.size() * (h + d + e);
 }
 
 void ComicGallery::OnPaint(wxPaintEvent& event) {
@@ -159,7 +108,9 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 			frac = animatingIndex - idx;
 		}
 
-		auto textHeight = drawWrappedText(comics[idx].getName(), gc, cw, ch);
+		auto textHeight = drawWrappedText(
+			{comics[idx].getName(), std::to_string(comics[idx].length())}, gc,
+			cw, ch);
 		const double GAP = 0.1 * (ch - textHeight);
 
 		std::vector<wxRealPoint> pos(comics.size());
@@ -171,10 +122,11 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 
 		{
 			verify(gc, idx);
-			const auto iw = sizes[idx].GetWidth();
-			const auto ih = sizes[idx].GetHeight();
+			const auto iw = pool.size(idx).GetWidth();
+			const auto ih = pool.size(idx).GetHeight();
 
-			scale[idx] = double(ch - textHeight) / ih;
+			scale[idx] =
+				std::min(double(ch - textHeight) / ih, double(cw) / iw);
 			scale[idx] *= mix(FOCUSED_COMIC, REST_COMIC, frac);
 
 			width[idx] = scale[idx] * iw;
@@ -195,8 +147,8 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 
 			auto sgn = i > idx ? 1 : -1;
 
-			const auto iw = sizes[i].GetWidth();
-			const auto ih = sizes[i].GetHeight();
+			const auto iw = pool.size(i).GetWidth();
+			const auto ih = pool.size(i).GetHeight();
 
 			scale[i] = double(ch - textHeight) / ih;
 			if (i == nextIdx) {
@@ -226,12 +178,12 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 
 		gc->SetInterpolationQuality(wxINTERPOLATION_BEST);
 		for (auto& i : coversToDraw) {
-			const auto iw = sizes[i].GetWidth();
-			const auto ih = sizes[i].GetHeight();
+			const auto iw = pool.size(i).GetWidth();
+			const auto ih = pool.size(i).GetHeight();
 
 			gc->Translate(pos[i].x, pos[i].y);
 			gc->Scale(scale[i], scale[i]);
-			gc->DrawBitmap(gBitmaps[i], -iw / 2.0, -ih / 2.0, iw, ih);
+			gc->DrawBitmap(pool.bitmap(i), -iw / 2.0, -ih / 2.0, iw, ih);
 			gc->Scale((1 / scale[i]), (1 / scale[i]));
 			gc->Translate(-pos[i].x, -pos[i].y);
 		}
@@ -265,14 +217,15 @@ void ComicGallery::HandleInput(Navigation input, char ch) {
 			return;
 	}
 	if (index != nextIndex) {
-		animator.Start(200, index, nextIndex);
-		animator.SetOnStep([this](float v) {
-			animatingIndex = v;
-			Refresh();
-		});
-		animator.SetOnEnd([this, nextIndex]() {
-			index = nextIndex;
-			Refresh();
-		});
+		animator.Start(
+			200, index, nextIndex,
+			[this](float v) {
+				animatingIndex = v;
+				Refresh();
+			},
+			[this, nextIndex]() {
+				index = nextIndex;
+				Refresh();
+			});
 	}
 }

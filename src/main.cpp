@@ -40,6 +40,7 @@ bool MyApp::OnInit() {
 	::wxInitAllImageHandlers();
 
 	auto frame = new MyFrame();
+	frame->SetIcon(wxICON(app_icon));
 	frame->Show(true);
 	frame->LoadComic();
 	return true;
@@ -70,9 +71,19 @@ void MyFrame::OnKeyDown(wxKeyEvent& event) {
 			break;
 		case WXK_RETURN:
 			if (comicGallery != nullptr && comicViewer == nullptr) {
-				comicViewer =
-					new ComicViewer(this, comicGallery->currentComic());
-				comicViewer->load();
+				try {
+					comicGallery->currentComic().unload();
+					comicViewer =
+						new ComicViewer(this, comicGallery->currentComic());
+					comicViewer->load();
+				} catch (const std::exception& e) {
+					comicViewer->Destroy();
+					comicViewer = nullptr;
+					wxMessageDialog d(
+						this, e.what(), "Error while opening comic");
+					d.ShowModal();
+					return;
+				}
 				SetTitle(comicGallery->currentComic().getName());
 				sizer->Add(comicViewer, wxSizerFlags(1).Expand());
 				sizer->Hide(size_t(0));
@@ -87,6 +98,7 @@ void MyFrame::OnKeyDown(wxKeyEvent& event) {
 				sizer->Show(size_t(0));
 				comicViewer->Destroy();
 				comicViewer = nullptr;
+				comicGallery->currentComic().unload();
 				Layout();
 			}
 			break;
@@ -105,7 +117,9 @@ void MyFrame::LoadComic() {
 	std::vector<std::filesystem::path> paths;
 	{
 		wxFileDialog openFileDialog(
-			this, "Open Comic", "", "", "Comic Files (*.cbr;*.cbz)|*.cbr;*.cbz",
+			this, "Open Comic", "", "",
+			"Comic Files (*.cbr;*.cbz)|*.cbr;*.cbz|"
+			"All files|*.*",
 			wxFD_OPEN | wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE);
 
 		if (openFileDialog.ShowModal() == wxID_CANCEL) { return; }

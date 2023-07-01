@@ -6,7 +6,9 @@
 #include <filesystem>
 #include <functional>
 
+#include "animator.hpp"
 #include "comic.hpp"
+#include "image_utils.hpp"
 #include "viewport.hpp"
 
 enum Navigation {
@@ -23,15 +25,20 @@ enum Navigation {
 	NoOp
 };
 
+enum PanSource { Mouse, Animation };
+enum AnimationType { None, Pan, View };
+
 class ComicViewer : public wxPanel {
 	Comic& comic;
 	int index;
-	std::vector<wxBitmap> bitmaps;
-	std::vector<wxSize> sizes;
-	std::vector<wxGraphicsBitmap> gBitmaps;
+	AnimationType animation;
+
+	ImagePool pool;
+
 	wxPoint2DDouble inProgressPanVector;
 	wxPoint2DDouble inProgressPanStartPoint;
-	bool panInProgress;
+
+	Animator<wxPoint2DDouble> viewportAnimator;
 
 	Viewport viewport;
 
@@ -44,19 +51,19 @@ class ComicViewer : public wxPanel {
 	void OnSize(wxSizeEvent&);
 	void OnCaptureLost(wxMouseCaptureLostEvent&);
 
-	void ProcessPan(const wxPoint2DDouble&, bool);
-	void FinishPan(bool);
+	void StartPan(const wxPoint2DDouble&, PanSource);
+	void ProcessPan(const wxPoint2DDouble&, bool, PanSource);
+	void FinishPan(bool refresh, PanSource);
 
-	Navigation MoveViewport(Navigation direction);
+	std::pair<Navigation, wxPoint2DDouble> ComputeMove(Navigation direction);
 	void OptimizeViewport();
 	void NextZoom(const wxPoint&);
 	wxPoint2DDouble MapClientToViewport(const wxPoint&);
 	double GetZoom();
-	void verify(const wxGraphicsContext* g, int index);
+	bool verify(const wxGraphicsContext* g, int index);
 
    public:
 	ComicViewer(wxWindow* parent, Comic& comic);
-	int length() const;
 	void load();
 	void HandleInput(Navigation);
 };

@@ -1,5 +1,6 @@
 #include "comic.hpp"
 
+#include <FreeImagePlus.h>
 #include <wx/settings.h>
 
 #include <filesystem>
@@ -15,12 +16,6 @@ const int THUMB_DIM = (std::min)(
 const std::filesystem::path cacheDirectory =
 	std::filesystem::temp_directory_path() / "comicReaderCache2";
 
-bool isImage(const ArchiveFile& file) {
-	const std::string prefix = "image/";
-	const auto mimeType = getMimeType(file.path());
-	return mimeType.compare(0, prefix.size(), prefix) == 0;
-}
-
 std::filesystem::path getCoverPath(
 	const std::filesystem::path& comic, const std::filesystem::path& img) {
 	auto path = cacheDirectory / comic.stem();
@@ -35,7 +30,7 @@ Comic::Comic(const std::filesystem::path& comicPath)
 	std::string extension;
 
 	processArchiveFile(comicPath, [&](const ArchiveFile& file) {
-		if (!file.isFile() || !isImage(file)) { return; }
+		if (!file.isFile() || !isImage(file.path())) { return; }
 		size++;
 		auto fullPath = cacheDirectory / file.path();
 		if (!cover.empty() && wxCmpNatural(cover, fullPath.string()) < 0) {
@@ -52,10 +47,10 @@ int Comic::length() const { return size; };
 std::string Comic::getName() const { return comicPath.stem().string(); };
 
 void Comic::load(std::function<void(int i)> progress) {
-	pages.clear();
+	unload();
 	const auto extractedCache = cacheDirectory / comicPath.stem();
 	processArchiveFile(comicPath, [&](const ArchiveFile& file) {
-		if (!file.isFile() || !isImage(file)) { return; }
+		if (!file.isFile() || !isImage(file.path())) { return; }
 		pages.push_back(extractedCache / file.path());
 		file.writeContent(pages.back());
 		if (progress) { progress(pages.size() - 1); }
@@ -64,4 +59,9 @@ void Comic::load(std::function<void(int i)> progress) {
 		return wxCmpNatural(a.string(), b.string()) < 0;
 	});
 	size = pages.size();
+}
+
+void Comic::unload() {
+	pages.clear();
+	std::filesystem::remove_all(cacheDirectory / comicPath.stem());
 }

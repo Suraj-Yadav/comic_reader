@@ -1,3 +1,5 @@
+#pragma once
+
 #include <wx/graphics.h>
 #include <wx/panel.h>
 
@@ -7,14 +9,13 @@
 #include "animator.hpp"
 #include "comic.hpp"
 #include "comic_viewer.hpp"
+#include "image_utils.hpp"
 
 class ComicGallery : public wxPanel {
 	std::vector<Comic> comics;
 	int index;
 	float animatingIndex;
-	std::vector<wxBitmap> bitmaps;
-	std::vector<wxSize> sizes;
-	std::vector<wxGraphicsBitmap> gBitmaps;
+	ImagePool pool;
 	Animator<float> animator;
 	void OnPaint(wxPaintEvent& evt);
 	void OnSize(wxSizeEvent& event);

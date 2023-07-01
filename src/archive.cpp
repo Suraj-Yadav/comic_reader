@@ -14,9 +14,7 @@ std::string getMimeType(const std::filesystem::path& filePath) {
 	auto f = wxTheMimeTypesManager->GetFileTypeFromExtension(
 		filePath.extension().c_str());
 	wxString mimeType;
-	if (f == nullptr || !f->GetMimeType(&mimeType)) {
-		return "";
-	}
+	if (f == nullptr || !f->GetMimeType(&mimeType)) { return ""; }
 	return mimeType.ToStdString();
 }
 
@@ -77,9 +75,7 @@ void processArchiveFile(
 
 	while (true) {
 		auto r = archive_read_next_header(archive, &entry);
-		if (r == ARCHIVE_EOF) {
-			break;
-		}
+		if (r == ARCHIVE_EOF) { break; }
 		if (r != ARCHIVE_OK) {
 			archive_read_close(archive);
 			throw std::invalid_argument(

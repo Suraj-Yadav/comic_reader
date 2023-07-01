@@ -5,14 +5,10 @@
 
 #include "fuzzy.hpp"
 #include "util.hpp"
+#include "wxUtil.hpp"
 
 ComicViewer::ComicViewer(wxWindow* parent, Comic& comic)
-	: wxPanel(parent),
-	  comic(comic),
-	  index(0),
-	  bitmaps(comic.length()),
-	  sizes(comic.length()),
-	  gBitmaps(comic.length()) {
+	: wxPanel(parent), comic(comic), index(0), animation(AnimationType::None) {
 	Bind(wxEVT_PAINT, &ComicViewer::OnPaint, this);
 	Bind(wxEVT_MOUSEWHEEL, &ComicViewer::OnMouseWheel, this);
 	Bind(wxEVT_LEFT_DOWN, &ComicViewer::OnLeftDown, this);
@@ -22,27 +18,20 @@ ComicViewer::ComicViewer(wxWindow* parent, Comic& comic)
 	SetBackgroundColour(wxColour(25, 25, 25, 1));
 }
 
-int ComicViewer::length() const { return comic.length(); };
-
 void ComicViewer::load() {
 	wxProgressDialog dialog(
 		"Loading Comic", "Loading Pages", comic.length(), this);
 	comic.load([&](int i) { dialog.Update(i + 1); });
+	for (auto& page : comic.pages) { pool.addImage(page); }
 }
 
-void ComicViewer::verify(const wxGraphicsContext* gc, int i) {
-	if (!bitmaps[i].IsOk()) {
-		bitmaps[i].LoadFile(comic.pages[i].string(), wxBITMAP_TYPE_ANY);
-		const auto& b = bitmaps[i];
-		sizes[i].Set(b.GetWidth(), b.GetHeight());
-		gBitmaps[i] = gc->CreateBitmap(b);
-	}
+bool ComicViewer::verify(const wxGraphicsContext* gc, int i) {
+	if (i < 0 || i >= comic.length()) { return false; }
+	return true;
 }
 
 void ComicViewer::OnPaint(wxPaintEvent& event) {
-	if (comic.pages.empty()) {
-		return;
-	}
+	if (comic.pages.empty()) { return; }
 
 	wxAutoBufferedPaintDC dc(this);
 	dc.Clear();
@@ -52,10 +41,13 @@ void ComicViewer::OnPaint(wxPaintEvent& event) {
 	wxGraphicsContext* gc = d2dr->CreateContext(dc);
 
 	if (gc) {
-		auto cs = GetClientSize();
-		verify(gc, index);
+		const auto& cw = GetClientSize().GetWidth();
+		const auto& ch = GetClientSize().GetHeight();
+		const auto& iw = pool.size(index).GetWidth();
+		const auto& ih = pool.size(index).GetHeight();
+
 		if (viewport.IsEmpty()) {
-			viewport = Viewport(0, 0, cs.GetWidth(), cs.GetHeight());
+			viewport = Viewport(0, 0, cw, ch);
 			NextZoom(wxPoint());
 			NextZoom(wxPoint());
 		}
@@ -64,25 +56,26 @@ void ComicViewer::OnPaint(wxPaintEvent& event) {
 
 		gc->SetInterpolationQuality(wxINTERPOLATION_BEST);
 
-		wxPoint2DDouble totalPan = viewport.GetLeftTop() + inProgressPanVector;
+		const auto totalPan = viewport.GetLeftTop() + inProgressPanVector;
 
-		auto zoom = GetZoom();
+		const auto zoom = GetZoom();
 
 		gc->Scale(zoom, zoom);
 		gc->Translate(-totalPan.m_x, -totalPan.m_y);
 
-		gc->DrawBitmap(
-			gBitmaps[index], 0, 0, sizes[index].GetWidth(),
-			sizes[index].GetHeight());
+		gc->DrawBitmap(pool.bitmap(index), 0, 0, iw, ih);
 
+		gc->Translate(totalPan.m_x, totalPan.m_y);
+		gc->Scale(1.0 / zoom, 1.0 / zoom);
+		drawBottomText(
+			std::to_string(index + 1) + "/" + std::to_string(comic.length()),
+			gc, cw, ch);
 		delete gc;
 	}
 }
 
 void ComicViewer::OnSize(wxSizeEvent& event) {
-	if (viewport.IsEmpty()) {
-		return;
-	}
+	if (viewport.IsEmpty()) { return; }
 	auto const& cs = GetClientSize();
 	auto const& vs = viewport.GetSize();
 
@@ -100,65 +93,83 @@ void ComicViewer::OnSize(wxSizeEvent& event) {
 }
 
 void ComicViewer::HandleInput(Navigation input) {
+	if (animation != AnimationType::None) { return; }
 	auto dir = Navigation::NoOp;
+	wxPoint2DDouble delta;
+	auto nextIndex = index;
+
 	switch (input) {
 		case Navigation::NextView:
 		case Navigation::PreviousView:
-			dir = MoveViewport(input);
+			std::tie(dir, delta) = ComputeMove(input);
 			break;
 		default:
 			dir = input;
 	}
-	auto nextIndex = index;
+
+	const auto& is =
+		wxPoint2DDouble(pool.size(index).GetX(), pool.size(index).GetY());
+
 	if (dir == Navigation::NextPage) {
 		nextIndex = std::min(index + 1, comic.length() - 1);
 	} else if (dir == Navigation::PreviousPage) {
 		nextIndex = std::max(index - 1, 0);
 	}
-	if (nextIndex != index) {
+
+	if (index != nextIndex) {
 		if (nextIndex > index) {
-			viewport.Translate(-viewport.GetLeftTop());
+			viewport.MoveLeftTopTo({0, 0});
 		} else {
-			const auto& is = sizes[index];
-			viewport.Translate(
-				wxPoint2DDouble(is.GetX(), is.GetY()) + viewport.GetLeftTop());
+			const auto ns = pool.size(nextIndex);
+			viewport.MoveRightBottomTo(
+				wxPoint2DDouble(ns.GetWidth(), ns.GetHeight()));
 		}
 		index = nextIndex;
+		Refresh();
+	} else if (dir == Navigation::PreviousView || dir == Navigation::NextView) {
+		const int MAX_DURATION_MS = 100;
+		StartPan({}, PanSource::Animation);
+		viewportAnimator.Start(
+			MAX_DURATION_MS, {}, delta,	 //
+			[this](auto v) { ProcessPan(v, true, PanSource::Animation); },
+			[this]() { FinishPan(true, PanSource::Animation); });
 	}
-	Refresh();
 }
 
-Navigation ComicViewer::MoveViewport(Navigation direction) {
-	const auto iw = sizes[index].GetWidth();
-	const auto ih = sizes[index].GetHeight();
+std::pair<Navigation, wxPoint2DDouble> ComicViewer::ComputeMove(
+	Navigation direction) {
+	const auto iw = pool.size(index).GetWidth();
+	const auto ih = pool.size(index).GetHeight();
 	if (direction == Navigation::NextView) {
 		if (fuzzy::greater_equal(viewport.GetRight(), iw) &&
 			fuzzy::greater_equal(viewport.GetBottom(), ih)) {
-			return Navigation::NextPage;
+			return {Navigation::NextPage, {}};
 		}
 		if (fuzzy::less(viewport.GetRight(), iw)) {
-			viewport.Translate(
-				std::min(viewport.m_width / 2, iw - viewport.GetRight()), 0);
-		} else {
-			viewport.Translate(
-				-viewport.GetLeft(),
-				std::min(viewport.m_height / 2, ih - viewport.GetBottom()));
+			return {
+				Navigation::NextView,
+				{std::min(viewport.W() / 2, iw - viewport.GetRight()), 0}};
 		}
+		return {
+			Navigation::NextView,
+			{-std::max(0.0, iw - viewport.W()),
+			 std::min(viewport.H() / 2, ih - viewport.GetBottom())}};
 	} else if (direction == Navigation::PreviousView) {
 		if (fuzzy::less_equal(viewport.GetLeft(), 0) &&
 			fuzzy::less_equal(viewport.GetTop(), 0)) {
-			return Navigation::PreviousPage;
+			return {Navigation::PreviousPage, {}};
 		}
 		if (fuzzy::greater(viewport.GetLeft(), 0)) {
-			viewport.Translate(
-				-std::min(viewport.m_width / 2, viewport.GetLeft()), 0);
-		} else {
-			viewport.Translate(
-				iw - viewport.m_width,
-				-std::min(viewport.m_height / 2, viewport.GetTop()));
+			return {
+				Navigation::PreviousView,
+				{-std::min(viewport.W() / 2, viewport.GetLeft()), 0}};
 		}
+		return {
+			Navigation::PreviousView,
+			{std::max(0.0, iw - viewport.W()),
+			 -std::min(viewport.H() / 2, viewport.GetTop())}};
 	}
-	return Navigation::NoOp;
+	return {Navigation::NoOp, {}};
 }
 
 void ComicViewer::NextZoom(const wxPoint& pt) {
@@ -166,8 +177,8 @@ void ComicViewer::NextZoom(const wxPoint& pt) {
 	auto currentZoom = GetZoom();
 
 	std::vector<double> validZooms = {
-		double(cs.GetWidth()) / sizes[index].GetWidth(),
-		double(cs.GetHeight()) / sizes[index].GetHeight(),
+		double(cs.GetWidth()) / pool.size(index).GetWidth(),
+		double(cs.GetHeight()) / pool.size(index).GetHeight(),
 		1.0,
 	};
 	std::sort(validZooms.begin(), validZooms.end());
@@ -187,7 +198,7 @@ void ComicViewer::NextZoom(const wxPoint& pt) {
 }
 
 double ComicViewer::GetZoom() {
-	return GetClientSize().GetWidth() / viewport.m_width;
+	return GetClientSize().GetWidth() / viewport.W();
 }
 
 wxPoint2DDouble ComicViewer::MapClientToViewport(const wxPoint& pt) {
@@ -201,7 +212,7 @@ wxPoint2DDouble ComicViewer::MapClientToViewport(const wxPoint& pt) {
 
 void ComicViewer::OptimizeViewport() {
 	const auto& vs = viewport.GetSize();
-	const auto& is = sizes[index];
+	const auto& is = pool.size(index);
 
 	// If there is extra space in both directions, scale viewport down to
 	// closest edge
@@ -230,9 +241,7 @@ void ComicViewer::OptimizeViewport() {
 }
 
 void ComicViewer::OnMouseWheel(wxMouseEvent& event) {
-	if (panInProgress) {
-		FinishPan(false);
-	}
+	FinishPan(false, PanSource::Mouse);
 
 	auto change = (double)event.GetWheelRotation() / event.GetWheelDelta();
 
@@ -243,35 +252,6 @@ void ComicViewer::OnMouseWheel(wxMouseEvent& event) {
 	event.Skip();
 }
 
-void ComicViewer::ProcessPan(const wxPoint2DDouble& pt, bool refresh) {
-	inProgressPanVector = inProgressPanStartPoint - pt;
-	if (refresh) {
-		Refresh();
-	}
-}
-
-void ComicViewer::FinishPan(bool refresh) {
-	if (panInProgress) {
-		SetCursor(wxNullCursor);
-
-		if (HasCapture()) {
-			ReleaseMouse();
-		}
-
-		Unbind(wxEVT_LEFT_UP, &ComicViewer::OnLeftUp, this);
-		Unbind(wxEVT_MOTION, &ComicViewer::OnMotion, this);
-		Unbind(wxEVT_MOUSE_CAPTURE_LOST, &ComicViewer::OnCaptureLost, this);
-
-		viewport.SetCentre(viewport.GetCentre() + inProgressPanVector);
-		inProgressPanVector = wxPoint2DDouble(0, 0);
-		panInProgress = false;
-
-		if (refresh) {
-			Refresh();
-		}
-	}
-}
-
 void ComicViewer::OnLeftDClick(wxMouseEvent& event) {
 	NextZoom(event.GetPosition());
 	Refresh();
@@ -279,27 +259,67 @@ void ComicViewer::OnLeftDClick(wxMouseEvent& event) {
 }
 
 void ComicViewer::OnLeftDown(wxMouseEvent& event) {
-	wxCursor cursor(wxCURSOR_HAND);
-	SetCursor(cursor);
-
-	inProgressPanStartPoint = MapClientToViewport(event.GetPosition());
-	inProgressPanVector = wxPoint2DDouble(0, 0);
-	panInProgress = true;
-
-	Bind(wxEVT_LEFT_UP, &ComicViewer::OnLeftUp, this);
-	Bind(wxEVT_MOTION, &ComicViewer::OnMotion, this);
-	Bind(wxEVT_MOUSE_CAPTURE_LOST, &ComicViewer::OnCaptureLost, this);
-
-	CaptureMouse();
+	StartPan(MapClientToViewport(event.GetPosition()), PanSource::Mouse);
 }
 
 void ComicViewer::OnMotion(wxMouseEvent& event) {
-	ProcessPan(MapClientToViewport(event.GetPosition()), true);
+	ProcessPan(
+		MapClientToViewport(event.GetPosition()), true, PanSource::Mouse);
 }
 
 void ComicViewer::OnLeftUp(wxMouseEvent& event) {
-	ProcessPan(MapClientToViewport(event.GetPosition()), false);
-	FinishPan(true);
+	ProcessPan(
+		MapClientToViewport(event.GetPosition()), false, PanSource::Mouse);
+	FinishPan(true, PanSource::Mouse);
 }
 
-void ComicViewer::OnCaptureLost(wxMouseCaptureLostEvent&) { FinishPan(true); }
+void ComicViewer::OnCaptureLost(wxMouseCaptureLostEvent&) {
+	FinishPan(true, PanSource::Mouse);
+}
+
+void ComicViewer::StartPan(const wxPoint2DDouble& pt, PanSource src) {
+	if (animation != AnimationType::None) { return; }
+	switch (src) {
+		case PanSource::Mouse:
+			animation = AnimationType::Pan;
+			SetCursor(wxCursor(wxCURSOR_HAND));
+			Bind(wxEVT_LEFT_UP, &ComicViewer::OnLeftUp, this);
+			Bind(wxEVT_MOTION, &ComicViewer::OnMotion, this);
+			Bind(wxEVT_MOUSE_CAPTURE_LOST, &ComicViewer::OnCaptureLost, this);
+			CaptureMouse();
+			break;
+		case PanSource::Animation:
+			animation = AnimationType::View;
+			break;
+	}
+	inProgressPanStartPoint = pt;
+	inProgressPanVector = wxPoint2DDouble(0, 0);
+}
+
+void ComicViewer::ProcessPan(
+	const wxPoint2DDouble& pt, bool refresh, PanSource src) {
+	inProgressPanVector = pt - inProgressPanStartPoint;
+	if (src == PanSource::Mouse) { inProgressPanVector = -inProgressPanVector; }
+	if (refresh) { Refresh(); }
+}
+
+void ComicViewer::FinishPan(bool refresh, PanSource src) {
+	if (animation == AnimationType::None) { return; }
+	switch (src) {
+		case PanSource::Mouse:
+			if (animation != AnimationType::Pan) { return; }
+			SetCursor(wxNullCursor);
+			if (HasCapture()) { ReleaseMouse(); }
+			Unbind(wxEVT_LEFT_UP, &ComicViewer::OnLeftUp, this);
+			Unbind(wxEVT_MOTION, &ComicViewer::OnMotion, this);
+			Unbind(wxEVT_MOUSE_CAPTURE_LOST, &ComicViewer::OnCaptureLost, this);
+			break;
+		case PanSource::Animation:
+			if (animation != AnimationType::View) { return; }
+			break;
+	}
+	viewport.SetCentre(viewport.GetCentre() + inProgressPanVector);
+	inProgressPanVector = wxPoint2DDouble(0, 0);
+	animation = AnimationType::None;
+	if (refresh) { Refresh(); }
+}

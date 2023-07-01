@@ -1,3 +1,5 @@
+#pragma once
+
 #include <string>
 // Need to include this before tweeny
 
@@ -27,19 +29,25 @@ template <typename T> class Animator : public wxEvtHandler {
 
 	void Reset() { startTime = std::chrono::steady_clock::now(); }
 	bool IsRunning() const { return isAnimating && tween.progress() < 1.0f; }
-	void SetOnStep(std::function<void(T i)> onStep) { this->onStep = onStep; }
-	void SetOnEnd(std::function<void()> onEnd) { this->onEnd = onEnd; }
 
-	void Start(int durationMs, T start, T end) {
-		Start(durationMs, start, end, tweeny::easing::defaultEasing());
+	void Start(
+		int durationMs, T start, T end, std::function<void(T i)> onStep,
+		std::function<void()> onEnd) {
+		Start(
+			durationMs, start, end, tweeny::easing::defaultEasing(), onStep,
+			onEnd);
 	}
 
 	template <typename EasingT>
-	void Start(int durationMs, T start, T end, EasingT easing) {
+	void Start(
+		int durationMs, T start, T end, EasingT easing,
+		std::function<void(T i)> onStep, std::function<void()> onEnd) {
 		startTime = std::chrono::steady_clock::now();
 		tween = tweeny::from(start).to(end).during(durationMs).via(easing);
-		timer.Start(durationMs / 10);
 		isAnimating = true;
+		this->onStep = onStep;
+		this->onEnd = onEnd;
+		timer.Start(std::max(durationMs / 100, 1));
 	}
 
 	void End() {
@@ -54,11 +62,8 @@ template <typename T> class Animator : public wxEvtHandler {
 		auto now = steady_clock::now();
 		auto elapsedMs =
 			duration_cast<duration<int, std::milli>>(now - startTime).count();
-
 		auto val = tween.seek(elapsedMs, true);
-
 		if (onStep) { onStep(val); }
-
 		if (tween.progress() >= 1.0f) { End(); }
 	}
 };

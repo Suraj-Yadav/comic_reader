@@ -9,7 +9,8 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/comic_reader",
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build"
         }
     ]
 }

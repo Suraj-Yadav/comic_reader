@@ -19,6 +19,7 @@ add_library(common_lib STATIC
     src/fuzzy.cpp
     src/image_utils.cpp
     src/viewport.cpp
+    src/wxUtil.cpp
 )
 target_link_libraries(common_lib PUBLIC wx::core wx::base freeimage::FreeImagePlus LibArchive::LibArchive)
 
@@ -28,7 +29,8 @@ add_executable(comic_reader WIN32 src/main.cpp)
 target_link_libraries(comic_reader PRIVATE common_lib)
 
 if(MSVC)
-    target_sources(comic_reader PRIVATE src/main.manifest)
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+    target_sources(comic_reader PRIVATE resource/main.rc resource/main.manifest)
 endif()
 
 # Setup Test, coverage and benchmarks
