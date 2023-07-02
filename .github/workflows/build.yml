@@ -33,7 +33,8 @@ jobs:
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
       - name: Build
-        run: call build.cmd
+        shell: cmd
+        run: build.cmd
       - uses: actions/upload-artifact@v3
         with:
           name: windows-build
