@@ -32,8 +32,8 @@ jobs:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
-      - name: Test
-        run: echo %ACTIONS_CACHE_URL%
+      - name: Build
+        run: build.cmd
       - uses: actions/upload-artifact@v3
         with:
           name: windows-build
