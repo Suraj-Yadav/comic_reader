@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 
-project(comic_reader LANGUAGES CXX)
+project(comic_reader 
+    VERSION 1.2.1
+    LANGUAGES CXX
+)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
@@ -36,14 +39,19 @@ if(MSVC)
     target_sources(comic_reader PRIVATE resource/main.rc resource/main.manifest)
 endif()
 
-set(CPACK_GENERATOR "ZIP")
-install(TARGETS comic_reader
-    RUNTIME_DEPENDENCIES
-        PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-" "hvsifiletrust" "pdmutilities"
-        POST_EXCLUDE_REGEXES ".*system32/.*\\.dll"
-    RUNTIME DESTINATION .
-)
-include(CPack)
+if(MSVC)
+    set(CPACK_GENERATOR "ZIP")
+    install(TARGETS comic_reader
+        RUNTIME_DEPENDENCIES
+            PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-" "hvsifiletrust" "pdmutilities"
+            POST_EXCLUDE_REGEXES ".*system32/.*\\.dll"
+        RUNTIME DESTINATION .
+    )
+    set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+    set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+    set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+    include(CPack)
+endif()
 
 # Setup Test, coverage and benchmarks
 find_package(benchmark CONFIG REQUIRED)
