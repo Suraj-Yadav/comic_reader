@@ -5,9 +5,8 @@ project(comic_reader LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
-find_package(benchmark CONFIG REQUIRED)
+find_package(Tweeny CONFIG REQUIRED)
 find_package(freeimage CONFIG REQUIRED)
-find_package(GTest CONFIG REQUIRED)
 find_package(LibArchive REQUIRED)
 find_package(wxWidgets CONFIG REQUIRED)
 
@@ -21,8 +20,12 @@ add_library(common_lib STATIC
     src/viewport.cpp
     src/wxUtil.cpp
 )
-target_link_libraries(common_lib PUBLIC wx::core wx::base freeimage::FreeImagePlus LibArchive::LibArchive)
-
+target_link_libraries(common_lib PUBLIC 
+    wx::core
+    freeimage::FreeImagePlus
+    LibArchive::LibArchive
+    tweeny
+)
 target_include_directories(common_lib PUBLIC "${CMAKE_SOURCE_DIR}/include")
 
 add_executable(comic_reader WIN32 src/main.cpp)
@@ -33,7 +36,19 @@ if(MSVC)
     target_sources(comic_reader PRIVATE resource/main.rc resource/main.manifest)
 endif()
 
+set(CPACK_GENERATOR "ZIP")
+install(TARGETS comic_reader
+    RUNTIME_DEPENDENCIES
+        PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-" "hvsifiletrust" "pdmutilities"
+        POST_EXCLUDE_REGEXES ".*system32/.*\\.dll"
+    RUNTIME DESTINATION .
+)
+include(CPack)
+
 # Setup Test, coverage and benchmarks
+find_package(benchmark CONFIG REQUIRED)
+find_package(GTest CONFIG REQUIRED)
+
 SET(TEST_SRCS
     src/archive_test.cpp
     src/comic_test.cpp
