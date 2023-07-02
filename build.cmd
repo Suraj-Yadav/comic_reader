@@ -12,11 +12,11 @@ IF DEFINED VCPKG_INSTALLATION_ROOT (
 vcpkg install --triplet x64-windows tweeny wxwidgets freeimage libarchive[core] benchmark gtest %CACHE%
 
 
-cmake -B build -S . -DCMAKE_BUILD_TYPE=Release || rmdir /S /Q build && mkdir build 
-cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+cmake -B build -S . || rmdir /S /Q build && mkdir build 
+cmake -B build -S .
 if %errorlevel% neq 0 exit /b %errorlevel%
 
-cmake --build build --target package
+cmake --build build --target package --config Release
 if %errorlevel% neq 0 exit /b %errorlevel%
 
 ENDLOCAL
