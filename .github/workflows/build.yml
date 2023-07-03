@@ -17,7 +17,11 @@ jobs:
       - name: cmake configure
         env:
           CMAKE_TOOLCHAIN_FILE: ${{ env.VCPKG_INSTALLATION_ROOT }}/scripts/buildsystems/vcpkg.cmake
-        run: cmake -B build -S .
+        run: |
+          setx CMAKE_TOOLCHAIN_FILE "$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake" -m
+          echo "$env:VCPKG_INSTALLATION_ROOT"
+          echo "$env:CMAKE_TOOLCHAIN_FILE"
+          cmake -B build -S .
       - name: cmake build
         run: cmake --build build --target package --config Release
       - uses: actions/upload-artifact@v3
