@@ -6,7 +6,6 @@ jobs:
     env:
       VCPKG_DEFAULT_TRIPLET: x64-windows
       VCPKG_BINARY_SOURCES: clear;x-gha,readwrite
-      CMAKE_TOOLCHAIN_FILE: ${{ env.VCPKG_INSTALLATION_ROOT }}/scripts/buildsystems/vcpkg.cmake
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
@@ -16,6 +15,8 @@ jobs:
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
       - name: cmake configure
+        env:
+          CMAKE_TOOLCHAIN_FILE: ${{ env.VCPKG_INSTALLATION_ROOT }}/scripts/buildsystems/vcpkg.cmake
         run: cmake -B build -S .
       - name: cmake build
         run: cmake --build build --target package --config Release
