@@ -14,15 +14,10 @@ jobs:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
-      - name: echo
-        run: env
       - name: cmake configure
-        env:
-          CMAKE_TOOLCHAIN_FILE: ${{ env.VCPKG_INSTALLATION_ROOT }}/scripts/buildsystems/vcpkg.cmake
         run: |
-          setx CMAKE_TOOLCHAIN_FILE "$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake" -m
-          echo "$env:VCPKG_INSTALLATION_ROOT"
-          echo "$env:CMAKE_TOOLCHAIN_FILE"
+          $env:CMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          env
           cmake -B build -S .
       - name: cmake build
         run: cmake --build build --target package --config Release
