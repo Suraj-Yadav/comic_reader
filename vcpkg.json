@@ -1,0 +1,16 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+    "name": "comic-reader",
+    "version": "0.0.0",
+    "dependencies": [
+        "tweeny",
+        "wxwidgets",
+        "freeimage",
+        {
+            "name": "libarchive",
+            "default-features": false
+        },
+        "benchmark",
+        "gtest"
+    ]
+}

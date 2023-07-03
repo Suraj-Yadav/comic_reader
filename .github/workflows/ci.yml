@@ -1,0 +1,21 @@
+name: CI
+on:
+  push
+jobs:
+  build:
+    uses: .github/workflows/build.yml
+  create-release:
+    needs:
+      - build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: windows-zip
+      - run: ls
+      # - uses: marvinpinto/action-automatic-releases@latest
+      #   with:
+      #     repo_token: "${{ secrets.GITHUB_TOKEN }}"
+      #     prerelease: false
+      #     files: |
+      #       ComicReaderWin.zip
