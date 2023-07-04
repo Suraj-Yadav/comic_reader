@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 
-project(comic_reader 
-    VERSION 1.2.1
-    LANGUAGES CXX
-)
+include(custom.cmake)
+parse_git_tag()
+
+project(comic_reader LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
@@ -47,9 +47,7 @@ if(MSVC)
             POST_EXCLUDE_REGEXES ".*system32/.*\\.dll"
         RUNTIME DESTINATION .
     )
-    set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
-    set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
-    set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+    set(CPACK_PACKAGE_VERSION ${VERSION_STRING})
     include(CPack)
 endif()
 
