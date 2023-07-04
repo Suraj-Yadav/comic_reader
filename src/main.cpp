@@ -1,5 +1,6 @@
 #include <wx/app.h>
 #include <wx/frame.h>
+#include <wx/msgdlg.h>
 
 #include <algorithm>
 #include <cctype>
@@ -54,23 +55,38 @@ MyFrame::MyFrame()
 }
 
 void MyFrame::OnKeyDown(wxKeyEvent& event) {
-	switch (event.GetKeyCode()) {
-		case WXK_LEFT:
-			if (comicViewer != nullptr) {
+	if (comicViewer != nullptr) {
+		switch (event.GetKeyCode()) {
+			case WXK_LEFT:
 				comicViewer->HandleInput(Navigation::PreviousView);
-			} else if (comicGallery != nullptr) {
-				comicGallery->HandleInput(Navigation::PreviousComic);
-			}
-			break;
-		case WXK_RIGHT:
-			if (comicViewer != nullptr) {
+				break;
+			case WXK_RIGHT:
 				comicViewer->HandleInput(Navigation::NextView);
-			} else if (comicGallery != nullptr) {
+				break;
+			case WXK_ESCAPE:
+				sizer->Remove(1);
+				sizer->Show(size_t(0));
+				comicViewer->Destroy();
+				comicViewer = nullptr;
+				comicGallery->currentComic().unload();
+				Layout();
+				SetTitle("Select Comic");
+				break;
+			case 'G':
+				if (event.CmdDown() || event.ControlDown()) {
+					comicViewer->HandleInput(Navigation::JumpToPage);
+				}
+				break;
+		}
+	} else if (comicGallery != nullptr) {
+		switch (event.GetKeyCode()) {
+			case WXK_LEFT:
+				comicGallery->HandleInput(Navigation::PreviousComic);
+				break;
+			case WXK_RIGHT:
 				comicGallery->HandleInput(Navigation::NextComic);
-			}
-			break;
-		case WXK_RETURN:
-			if (comicGallery != nullptr && comicViewer == nullptr) {
+				break;
+			case WXK_RETURN:
 				try {
 					comicGallery->currentComic().unload();
 					comicViewer =
@@ -79,9 +95,7 @@ void MyFrame::OnKeyDown(wxKeyEvent& event) {
 				} catch (const std::exception& e) {
 					comicViewer->Destroy();
 					comicViewer = nullptr;
-					wxMessageDialog d(
-						this, e.what(), "Error while opening comic");
-					d.ShowModal();
+					wxMessageBox(e.what(), "Error while opening comic");
 					return;
 				}
 				SetTitle(comicGallery->currentComic().getName());
@@ -90,25 +104,14 @@ void MyFrame::OnKeyDown(wxKeyEvent& event) {
 				comicViewer->SetFocus();
 				comicViewer->SetFocusFromKbd();
 				Layout();
-			}
-			break;
-		case WXK_ESCAPE:
-			if (comicViewer != nullptr) {
-				sizer->Remove(1);
-				sizer->Show(size_t(0));
-				comicViewer->Destroy();
-				comicViewer = nullptr;
-				comicGallery->currentComic().unload();
-				Layout();
-			}
-			break;
-		default: {
-			unsigned char ch = event.GetKeyCode();
-			if (std::isalpha(ch) && comicGallery != nullptr) {
-				comicGallery->HandleInput(
-					Navigation::JumpToComic, event.GetKeyCode());
-			}
-		} break;
+				break;
+			default:
+				if (std::isalpha(event.GetKeyCode())) {
+					comicGallery->HandleInput(
+						Navigation::JumpToComic, event.GetKeyCode());
+				}
+				break;
+		}
 	}
 	event.Skip();
 }

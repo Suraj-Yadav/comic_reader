@@ -20,8 +20,8 @@ enum Navigation {
 	PreviousPage,	// Move to previous page
 	NextView,		// Move to next view
 	PreviousView,	// Move to previous view
+	JumpToPage,		// Jump to page
 	SwitchScroll,
-	JumpToPage,
 	NoOp
 };
 

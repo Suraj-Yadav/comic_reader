@@ -1,6 +1,7 @@
 #include "comic_viewer.hpp"
 
 #include <wx/dcbuffer.h>
+#include <wx/numdlg.h>
 #include <wx/progdlg.h>
 
 #include "fuzzy.hpp"
@@ -105,6 +106,7 @@ void ComicViewer::HandleInput(Navigation input) {
 			break;
 		default:
 			dir = input;
+			break;
 	}
 
 	const auto& is =
@@ -114,6 +116,11 @@ void ComicViewer::HandleInput(Navigation input) {
 		nextIndex = std::min(index + 1, comic.length() - 1);
 	} else if (dir == Navigation::PreviousPage) {
 		nextIndex = std::max(index - 1, 0);
+	} else if (dir == Navigation::JumpToPage) {
+		nextIndex = wxGetNumberFromUser(
+						"Go To Page", "", "", index + 1, 1, comic.length()) -
+					1;
+		if (nextIndex < 0) { nextIndex = index; }
 	}
 
 	if (index != nextIndex) {
