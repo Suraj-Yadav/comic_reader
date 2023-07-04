@@ -2,20 +2,49 @@ name: CI
 on:
   push
 jobs:
-  build:
-    uses: ./.github/workflows/build.yml
+  build-windows:
+    env:
+      VCPKG_DEFAULT_TRIPLET: x64-windows
+      VCPKG_BINARY_SOURCES: clear;x-gha,readwrite
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+      - name: Setup OpenCppCoverage and add to PATh
+        id: setup_opencppcoverage
+        run: |
+          choco install OpenCppCoverage -y
+          echo "C:\Program Files\OpenCppCoverage" >> $env:GITHUB_PATH
+      - name: cmake configure
+        run: |
+          $env:CMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          cmake -B build -S .
+      - name: cmake test
+        run: cmake --build build --target coverage
+      - name: cmake build
+        run: cmake --build build --target package --config Release
+      - uses: actions/upload-artifact@v3
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          name: windows-zip
+          path: build/comic_reader-*.zip
   create-release:
+    if: startsWith(github.ref, 'refs/tags/v')
     needs:
-      - build
+      - build-windows
     runs-on: macos-latest
     steps:
       - uses: actions/download-artifact@v3
         with:
           name: windows-zip
       - run: ls
-      # - uses: marvinpinto/action-automatic-releases@latest
-      #   with:
-      #     repo_token: "${{ secrets.GITHUB_TOKEN }}"
-      #     prerelease: false
-      #     files: |
-      #       ComicReaderWin.zip
+      - uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: false
+          files: |
+            comic_reader-*.zip

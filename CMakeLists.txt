@@ -79,18 +79,7 @@ if(MSVC)
         --sources $<SHELL_PATH:${CMAKE_SOURCE_DIR}/src>
         --sources $<SHELL_PATH:${CMAKE_SOURCE_DIR}/include>
         --modules $<SHELL_PATH:${CMAKE_BINARY_DIR}>
-        --cover_children -- $<TARGET_FILE:tests>
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        DEPENDS tests
-    )
-else()
-    target_compile_options(common_lib PRIVATE -O0 -g --coverage)
-    target_compile_options(tests PRIVATE -O0 -g --coverage)
-    target_link_libraries(tests PRIVATE --coverage)
-    add_custom_target(
-        coverage
-        $<TARGET_FILE:tests>
-        COMMAND gcovr --root ${CMAKE_SOURCE_DIR} --cobertura-pretty --output ${CMAKE_BINARY_DIR}/cov.xml
+        --cover_children -- $<TARGET_FILE:tests> --gtest_output=xml:${CMAKE_BINARY_DIR}/test.xml
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         DEPENDS tests
     )
