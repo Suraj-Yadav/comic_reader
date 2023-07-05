@@ -42,11 +42,12 @@ template <typename T> class Animator : public wxEvtHandler {
 	void Start(
 		int durationMs, T start, T end, EasingT easing,
 		std::function<void(T i)> onStep, std::function<void()> onEnd) {
-		startTime = std::chrono::steady_clock::now();
+		Reset();
 		tween = tweeny::from(start).to(end).during(durationMs).via(easing);
 		isAnimating = true;
 		this->onStep = onStep;
 		this->onEnd = onEnd;
+		if (onStep) { onStep(start); }
 		timer.Start(std::max(durationMs / 100, 1));
 	}
 
@@ -57,7 +58,7 @@ template <typename T> class Animator : public wxEvtHandler {
 	}
 
    private:
-	void OnTimer(wxTimerEvent& event) {
+	void Process() {
 		using namespace std::chrono;
 		auto now = steady_clock::now();
 		auto elapsedMs =
@@ -66,4 +67,6 @@ template <typename T> class Animator : public wxEvtHandler {
 		if (onStep) { onStep(val); }
 		if (tween.progress() >= 1.0f) { End(); }
 	}
+
+	void OnTimer(wxTimerEvent& event) { Process(); }
 };

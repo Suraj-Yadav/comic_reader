@@ -5,8 +5,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <future>
 #include <queue>
-#include <thread>
 
 #include "comic.hpp"
 #include "comic_viewer.hpp"
@@ -14,13 +14,16 @@
 #include "util.hpp"
 #include "wxUtil.hpp"
 
-const auto MAX_CPU_THREADS = std::max(std::thread::hardware_concurrency(), 1u);
+const int GALLERY_UPDATE_ID = 100000;
 
 ComicGallery::ComicGallery(
 	wxWindow* parent, const std::vector<std::filesystem::path>& paths)
-	: wxPanel(parent), index(0) {
+	: wxPanel(parent), index(0), workInBackground(false) {
 	Bind(wxEVT_PAINT, &ComicGallery::OnPaint, this);
 	Bind(wxEVT_SIZE, &ComicGallery::OnSize, this);
+	Bind(
+		wxEVT_COMMAND_TEXT_UPDATED, &ComicGallery::OnComicAddition, this,
+		GALLERY_UPDATE_ID);
 
 	SetBackgroundStyle(wxBG_STYLE_PAINT);
 	SetBackgroundColour(wxColour(25, 25, 25, 1));
@@ -28,60 +31,54 @@ ComicGallery::ComicGallery(
 	loadComics(paths);
 }
 
-void ComicGallery::loadComics(std::vector<std::filesystem::path> paths) {
-	std::sort(paths.begin(), paths.end());
-	paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
-
-	wxProgressDialog dialog(
-		"Please wait", "Loading Comics", paths.size(), this);
-
-	std::mutex guard;
-	auto f = [&](bool isMainThread) {
-		for (std::filesystem::path path; !paths.empty();) {
-			{
-				std::lock_guard<std::mutex> lock(guard);
-				if (paths.empty()) { break; }
-				path = paths.back();
-				paths.pop_back();
-			}
-			auto c = Comic(path);
-			{
-				std::lock_guard<std::mutex> lock(guard);
-				comics.push_back(c);
-				if (isMainThread) { dialog.Update(comics.size()); }
-			}
-		}
-	};
-	std::vector<std::thread> threads;
-	for (auto i = 2u; i < MAX_CPU_THREADS; ++i) {
-		threads.emplace_back(f, false);
+ComicGallery::~ComicGallery() {
+	if (workInBackground.load()) {
+		wxProgressDialog dialog("Stopping Background Threads", "");
+		dialog.Pulse();
+		workInBackground.store(false);
+		loader.wait();
 	}
-	f(true);
-	for (auto& thread : threads) { thread.join(); }
+}
 
-	std::sort(comics.begin(), comics.end(), [](const auto& a, const auto& b) {
-		return wxCmpNatural(a.getName(), b.getName()) < 0;
+void ComicGallery::AddComic(std::filesystem::path path) {
+	comics.push_back(Comic(path));
+	pool.addImage(comics.back().coverPage);
+}
+
+void ComicGallery::loadComics(std::vector<std::filesystem::path> paths) {
+	if (paths.empty()) { return; }
+	std::sort(paths.begin(), paths.end(), [](const auto& a, const auto& b) {
+		return wxCmpNatural(a.stem().string(), b.stem().string()) < 0;
 	});
-	for (auto& c : comics) { pool.addImage(c.coverPage); }
-	dialog.Update(comics.size());
+	paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
+	comics.reserve(paths.size());
+
+	AddComic(paths.front());
+
+	workInBackground.store(false);
+
+	if (!paths.empty()) {
+		workInBackground.store(true);
+		loader = std::async([paths, this]() {
+			for (auto i = 1u; i < paths.size(); ++i) {
+				if (!workInBackground.load()) { return; }
+				AddComic(paths[i]);
+				GetEventHandler()->AddPendingEvent(wxCommandEvent(
+					wxEVT_COMMAND_TEXT_UPDATED, GALLERY_UPDATE_ID));
+			}
+			workInBackground.store(false);
+		});
+	}
 	index = 0;
 }
 
-void ComicGallery::verify(const wxGraphicsContext* gc, int i) {
-	// if (gBitmaps[i].IsNull()) {
-	// 	if (!bitmaps[i].LoadFile(
-	// 			comics[i].coverPage.string(), wxBITMAP_TYPE_ANY)) {
-	// 		bitmaps[i] = wxBitmap();
-	// 	}
-	// 	const auto& b = bitmaps[i];
-	// 	sizes[i].Set(b.GetWidth(), b.GetHeight());
-	// 	gBitmaps[i] = gc->CreateBitmap(b);
-	// }
-}
+void ComicGallery::verify(const wxGraphicsContext* gc, int i) {}
 
 template <typename T, typename U> T mix(T x, T y, U a) {
 	return x * (1 - a) + a * y;
 }
+
+void ComicGallery::OnComicAddition(wxCommandEvent& event) { Refresh(); }
 
 void ComicGallery::OnPaint(wxPaintEvent& event) {
 	const double FOCUSED_COMIC = 0.9, REST_COMIC = 0.7;
@@ -113,9 +110,10 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 			cw, ch);
 		const double GAP = 0.1 * (ch - textHeight);
 
-		std::vector<wxRealPoint> pos(comics.size());
-		std::vector<double> scale(comics.size(), 1);
-		std::vector<double> width(comics.size(), 0);
+		const auto size = comics.size();
+		std::vector<wxRealPoint> pos(size);
+		std::vector<double> scale(size, 1);
+		std::vector<double> width(size, 0);
 
 		std::queue<int> coversToConsider;
 		std::vector<int> coversToDraw;
@@ -142,7 +140,7 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 			auto i = coversToConsider.front();
 			coversToConsider.pop();
 
-			if (i < 0 || i >= comics.size()) continue;
+			if (i < 0 || i >= size) continue;
 			verify(gc, i);
 
 			auto sgn = i > idx ? 1 : -1;
@@ -176,6 +174,15 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 		}
 		coversToDraw.push_back(idx);
 
+		// Draw loading bar
+		if (workInBackground.load()) {
+			gc->SetBrush(wxBrush(*wxRED_BRUSH));
+			gc->DrawRectangle(0, 0, cw, 5);
+			gc->SetBrush(wxBrush(*wxGREEN_BRUSH));
+			gc->DrawRectangle(0, 0, float(size * cw) / comics.capacity(), 5);
+		}
+
+		// Draw comics
 		gc->SetInterpolationQuality(wxINTERPOLATION_BEST);
 		for (auto& i : coversToDraw) {
 			const auto iw = pool.size(i).GetWidth();

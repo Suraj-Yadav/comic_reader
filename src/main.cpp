@@ -106,7 +106,7 @@ void MyFrame::OnKeyDown(wxKeyEvent& event) {
 				Layout();
 				break;
 			default:
-				if (std::isalpha(event.GetKeyCode())) {
+				if (std::isalpha(std::clamp(event.GetKeyCode(), -1, 255))) {
 					comicGallery->HandleInput(
 						Navigation::JumpToComic, event.GetKeyCode());
 				}

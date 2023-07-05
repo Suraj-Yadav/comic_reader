@@ -1,7 +1,6 @@
 #include "comic.hpp"
 
 #include <benchmark/benchmark.h>
-#include <wx/image.h>
 
 #define runner(X)                                                \
 	void BM_##X(benchmark::State& state) {                       \
