@@ -1,3 +1,5 @@
+#include "fuzzy.hpp"
+
 #include <cmath>
 
 namespace fuzzy {

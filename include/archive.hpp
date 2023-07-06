@@ -8,8 +8,6 @@
 #include <filesystem>
 #include <functional>
 
-std::string getMimeType(const std::filesystem::path& filePath);
-
 class ArchiveFile {
 	friend void processArchiveFile(
 		const std::filesystem::path& filePath,

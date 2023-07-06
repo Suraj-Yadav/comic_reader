@@ -6,7 +6,7 @@
 
 bool saveThumbnail(
 	const std::filesystem::path& src, const std::filesystem::path& dest,
-	const unsigned int MAX_DIM);
+	const int MAX_DIM);
 
 bool isImage(const std::filesystem::path& file);
 

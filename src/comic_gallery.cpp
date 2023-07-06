@@ -41,8 +41,9 @@ ComicGallery::~ComicGallery() {
 }
 
 void ComicGallery::AddComic(std::filesystem::path path) {
-	comics.push_back(Comic(path));
-	pool.addImage(comics.back().coverPage);
+	Comic c(path);
+	pool.addImage(c.coverPage);
+	comics.push_back(c);
 }
 
 void ComicGallery::loadComics(std::vector<std::filesystem::path> paths) {

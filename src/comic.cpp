@@ -1,6 +1,5 @@
 #include "comic.hpp"
 
-#include <FreeImagePlus.h>
 #include <wx/settings.h>
 
 #include <filesystem>

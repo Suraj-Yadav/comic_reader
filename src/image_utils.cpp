@@ -1,39 +1,75 @@
 #include "image_utils.hpp"
 
-#include <FreeImagePlus.h>
+#include <webp/decode.h>
+#include <webp/encode.h>
 #include <wx/bitmap.h>
-#include <wx/rawbmp.h>
 
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+
+#include "archive.hpp"
 #include "util.hpp"
+
+bool save(const std::filesystem::path& file, const wxImage& img) {
+	if (file.extension() != ".webp") { return img.SaveFile(file.string()); }
+	uint8_t* bytes;
+	auto size = WebPEncodeLosslessRGB(
+		img.GetData(), img.GetWidth(), img.GetHeight(), img.GetWidth() * 3,
+		&bytes);
+	if (size == 0) { return false; }
+	std::basic_ofstream<uint8_t, std::char_traits<uint8_t>> output(
+		file, std::ios::binary);
+	output.write(bytes, size);
+	WebPFree(bytes);
+	output.close();
+	return true;
+}
+
+wxImage load(const std::filesystem::path& file) {
+	if (file.extension() != ".webp") {
+		return wxImage(file.string(), wxBITMAP_TYPE_ANY);
+	}
+	std::basic_ifstream<uint8_t, std::char_traits<uint8_t>> input(
+		file, std::ios::binary);
+	std::vector<uint8_t> bytes(
+		(std::istreambuf_iterator<uint8_t>(input)),
+		std::istreambuf_iterator<uint8_t>());
+	input.close();
+
+	int iw = 0;
+	int ih = 0;
+	auto pixels = WebPDecodeRGB(bytes.data(), bytes.size(), &iw, &ih);
+	wxImage img(iw, ih);
+	std::memcpy(img.GetData(), pixels, iw * ih * 3);
+	WebPFree(pixels);
+	return img;
+}
 
 bool saveThumbnail(
 	const std::filesystem::path& src, const std::filesystem::path& dest,
-	const unsigned int MAX_DIM) {
-	fipImage img;
-	if (!img.load(src.string().c_str())) { return false; }
+	const int MAX_DIM) {
+	auto img = load(src);
 
 	int W = MAX_DIM, H = MAX_DIM;
-	if ((std::max)(img.getWidth(), img.getHeight()) < MAX_DIM) {
+	if ((std::max)(img.GetWidth(), img.GetHeight()) < MAX_DIM) {
 		if (src != dest) {
 			return std::filesystem::copy_file(
 				src, dest, std::filesystem::copy_options::overwrite_existing);
 		}
 		return true;
-	} else if (img.getWidth() > img.getHeight()) {
-		H = (img.getHeight() * MAX_DIM) / img.getWidth();
+	} else if (img.GetWidth() > img.GetHeight()) {
+		H = (img.GetHeight() * MAX_DIM) / img.GetWidth();
 	} else {
-		W = (img.getWidth() * MAX_DIM) / img.getHeight();
+		W = (img.GetWidth() * MAX_DIM) / img.GetHeight();
 	}
-
-	if (!img.rescale(W, H, FREE_IMAGE_FILTER::FILTER_LANCZOS3)) {
-		return false;
-	};
-
-	return img.save(dest.string().c_str());
+	return save(dest, img.Rescale(W, H, wxIMAGE_QUALITY_HIGH));
 }
 
 bool isImage(const std::filesystem::path& file) {
-	return fipImage::identifyFIF(file.string().c_str()) != FIF_UNKNOWN;
+	const auto& ext = file.extension();
+	return ext == ".webp" || ext == ".jpg" || ext == ".jpeg" || ext == ".png" ||
+		   ext == ".gif";
 }
 
 bool ImagePool::addImage(const std::filesystem::path& filepath) {
@@ -44,28 +80,7 @@ bool ImagePool::addImage(const std::filesystem::path& filepath) {
 
 void ImagePool::load(int index) {
 	if (bitmaps[index].IsOk()) return;
-	fipImage img;
-	img.load(paths[index].string().c_str());
-
-	const auto& iw = img.getWidth();
-	const auto& ih = img.getHeight();
-
-	auto& bmp = bitmaps[index];
-	bmp.Create(iw, ih, 24);
-	wxNativePixelData data(bmp);
-	wxNativePixelData::Iterator p(data);
-	RGBQUAD color;
-	for (auto y = 0u; y < ih; ++y) {
-		wxNativePixelData::Iterator rowStart = p;
-		for (auto x = 0u; x < iw; ++x, ++p) {
-			img.getPixelColor(x, ih - y, &color);
-			p.Red() = color.rgbRed;
-			p.Green() = color.rgbGreen;
-			p.Blue() = color.rgbBlue;
-		}
-		p = rowStart;
-		p.OffsetY(data, 1);
-	}
+	bitmaps[index] = ::load(paths[index]);
 }
 
 const wxSize ImagePool::size(int index) {

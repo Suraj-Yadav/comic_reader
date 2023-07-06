@@ -10,14 +10,6 @@
 
 #include "util.hpp"
 
-std::string getMimeType(const std::filesystem::path& filePath) {
-	auto f = wxTheMimeTypesManager->GetFileTypeFromExtension(
-		filePath.extension().c_str());
-	wxString mimeType;
-	if (f == nullptr || !f->GetMimeType(&mimeType)) { return ""; }
-	return mimeType.ToStdString();
-}
-
 ArchiveFile::ArchiveFile(struct archive* ap, archive_entry* e)
 	: archivePtr(ap), entry(e) {}
 

@@ -1,14 +1,8 @@
 #include "archive.hpp"
 
 #include <gtest/gtest.h>
-#include <wx/mimetype.h>
 
-#include <filesystem>
 #include <map>
-
-TEST(mime, jpg) { EXPECT_EQ(getMimeType("image.jpg"), "image/jpeg"); }
-
-TEST(mime, incorrect_jpg) { EXPECT_EQ(getMimeType("image.jppg"), ""); }
 
 class ArchiveTestFixtures
 	: public ::testing::TestWithParam<std::filesystem::path> {};

@@ -8,9 +8,9 @@ project(comic_reader LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
-find_package(Tweeny CONFIG REQUIRED)
-find_package(freeimage CONFIG REQUIRED)
 find_package(LibArchive REQUIRED)
+find_package(Tweeny CONFIG REQUIRED)
+find_package(WebP CONFIG REQUIRED)
 find_package(wxWidgets CONFIG REQUIRED)
 
 add_library(common_lib STATIC
@@ -24,10 +24,10 @@ add_library(common_lib STATIC
     src/wxUtil.cpp
 )
 target_link_libraries(common_lib PUBLIC 
-    wx::core
-    freeimage::FreeImagePlus
     LibArchive::LibArchive
     tweeny
+    WebP::webp
+    wx::core
 )
 target_include_directories(common_lib PUBLIC "${CMAKE_SOURCE_DIR}/include")
 
