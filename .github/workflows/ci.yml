@@ -1,6 +1,11 @@
 name: CI
-on:
-  push
+on: 
+  push:
+    branches:
+      - '**'        # matches every branch
+      - '!master'
+    tags:
+      - '**'        # matches every tag
 jobs:
   build-windows:
     env:
