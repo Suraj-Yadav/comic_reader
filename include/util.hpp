@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <string>
 
 using std::cout;
 #define dbg(X) #X, "=", (X)
@@ -14,11 +15,14 @@ template <typename T> inline void printC(T t) {
 	for (auto& elem : t) print(elem, "");
 	cout << std::endl;
 }
-#define println(...)                                                 \
-	{                                                                \
-		print(__FILE__ ":" + std::to_string(__LINE__), __VA_ARGS__); \
-		cout << std::endl;                                           \
-	}
-#define printFuncCall println(__FUNCTION__, "called")
 
-template <typename T> int sgn(T val) { return (T(0) < val) - (val < T(0)); }
+#define println(...)        \
+	{                       \
+		print(__VA_ARGS__); \
+		cout << std::endl;  \
+	}
+
+#define printloc(...) \
+	println(__FILE__ ":" + std::to_string(__LINE__), __VA_ARGS__);
+
+#define printFuncCall println(__FUNCTION__, "called")

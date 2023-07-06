@@ -13,7 +13,7 @@ const int THUMB_DIM = (std::min)(
 	wxSystemSettings::GetMetric(wxSYS_SCREEN_Y));
 
 const std::filesystem::path cacheDirectory =
-	std::filesystem::temp_directory_path() / "comicReaderCache2";
+	std::filesystem::temp_directory_path() / "comicReaderCache";
 
 std::filesystem::path getCoverPath(
 	const std::filesystem::path& comic, const std::filesystem::path& img) {

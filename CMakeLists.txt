@@ -59,6 +59,7 @@ SET(TEST_SRCS
     src/archive_test.cpp
     src/comic_test.cpp
     src/fuzzy_test.cpp
+    src/lru_test.cpp
 )
 
 add_executable(tests ${TEST_SRCS})

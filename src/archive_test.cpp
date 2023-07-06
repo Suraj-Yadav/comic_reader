@@ -9,10 +9,10 @@ class ArchiveTestFixtures
 
 TEST_P(ArchiveTestFixtures, VerifyArchive) {
 	auto filePath = GetParam();
-	std::map<std::filesystem::path, int> filesExpected{
+	std::map<std::filesystem::path, int64_t> filesExpected{
 		{"a/b.txt", 1}, {"c.txt", 2}, {"test.png", 11645}};
 
-	std::map<std::filesystem::path, int> filesFound;
+	std::map<std::filesystem::path, int64_t> filesFound;
 	auto tempDir = std::filesystem::path(std::tmpnam(nullptr));
 
 	processArchiveFile(filePath, [&](const ArchiveFile& file) {

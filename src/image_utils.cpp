@@ -72,6 +72,10 @@ bool isImage(const std::filesystem::path& file) {
 		   ext == ".gif";
 }
 
+ImagePool::ImagePool() : lru(1024 * 1024 * 200, 3) {  // Limit to ~200 MB
+	lru.addEvictionHook([this](int i) { unload(i); });
+}
+
 bool ImagePool::addImage(const std::filesystem::path& filepath) {
 	paths.emplace_back(filepath);
 	bitmaps.emplace_back();
@@ -79,8 +83,16 @@ bool ImagePool::addImage(const std::filesystem::path& filepath) {
 }
 
 void ImagePool::load(int index) {
-	if (bitmaps[index].IsOk()) return;
-	bitmaps[index] = ::load(paths[index]);
+	if (!bitmaps[index].IsOk()) { bitmaps[index] = ::load(paths[index]); }
+	const auto& s = bitmaps[index].GetSize();
+	// Approx mem of an image
+	const auto size = s.GetHeight() * s.GetWidth() * 3 * sizeof(unsigned char);
+	lru.hit(index, size);
+}
+
+void ImagePool::unload(int index) {
+	if (!bitmaps[index].IsOk()) return;
+	bitmaps[index].UnRef();
 }
 
 const wxSize ImagePool::size(int index) {

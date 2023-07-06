@@ -32,6 +32,8 @@ class MyFrame : public wxFrame {
 	void LoadComic();
 };
 
+const auto DEFAULT_FRAME_TITLE = "Select Comic";
+
 int MyApp::OnExit() {
 	std::filesystem::remove_all(cacheDirectory);
 	return 0;
@@ -44,6 +46,7 @@ bool MyApp::OnInit() {
 	frame->SetIcon(wxICON(app_icon));
 	frame->Show(true);
 	frame->LoadComic();
+	frame->SetTitle(DEFAULT_FRAME_TITLE);
 	return true;
 }
 
@@ -70,7 +73,7 @@ void MyFrame::OnKeyDown(wxKeyEvent& event) {
 				comicViewer = nullptr;
 				comicGallery->currentComic().unload();
 				Layout();
-				SetTitle("Select Comic");
+				SetTitle(DEFAULT_FRAME_TITLE);
 				break;
 			case 'G':
 				if (event.CmdDown() || event.ControlDown()) {
