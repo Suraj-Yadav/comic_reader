@@ -14,8 +14,9 @@ ArchiveFile::ArchiveFile(struct archive* ap, archive_entry* e)
 	: archivePtr(ap), entry(e) {}
 
 std::filesystem::path ArchiveFile::path() const {
-	return std::filesystem::path(archive_entry_pathname(entry))
-		.make_preferred();
+	auto p = archive_entry_pathname(entry);
+	if (p == nullptr) { return ""; }
+	return std::filesystem::path(p).make_preferred();
 }
 
 int64_t ArchiveFile::size() const { return archive_entry_size(entry); }

@@ -32,13 +32,14 @@ bool ComicViewer::verify(const wxGraphicsContext* gc, int i) {
 }
 
 void ComicViewer::OnPaint(wxPaintEvent& event) {
+	if (pool.empty()) { return; }
 	if (comic.pages.empty()) { return; }
 
 	wxAutoBufferedPaintDC dc(this);
 	dc.Clear();
 
 	// direct2d renderer
-	wxGraphicsRenderer* d2dr = wxGraphicsRenderer::GetDirect2DRenderer();
+	wxGraphicsRenderer* d2dr = wxGraphicsRenderer::GetDefaultRenderer();
 	wxGraphicsContext* gc = d2dr->CreateContext(dc);
 
 	if (gc) {

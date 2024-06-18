@@ -49,6 +49,7 @@ wxImage load(const std::filesystem::path& file) {
 bool saveThumbnail(
 	const std::filesystem::path& src, const std::filesystem::path& dest,
 	const int MAX_DIM) {
+	if (!std::filesystem::exists(src)) { return false; }
 	auto img = load(src);
 
 	int W = MAX_DIM, H = MAX_DIM;
