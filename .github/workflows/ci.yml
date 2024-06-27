@@ -55,7 +55,7 @@ jobs:
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
       - name: cmake configure
         run: |
-          CMAKE_TOOLCHAIN_FILE=VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake cmake -B build -S .
+          CMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake cmake -B build -S .
       - name: cmake build
         run: cmake --build build --target package --config Release
     
