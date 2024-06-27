@@ -43,7 +43,7 @@ bool MyApp::OnInit() {
 	::wxInitAllImageHandlers();
 
 	auto frame = new MyFrame();
-	frame->SetIcon(wxICON(app_icon));
+	// frame->SetIcon(wxICON(app_icon));
 	frame->Show(true);
 	frame->LoadComic();
 	frame->SetTitle(DEFAULT_FRAME_TITLE);
