@@ -26,4 +26,5 @@ class ImagePool {
 	const wxSize size(int index);
 	const wxBitmap& bitmap(int index);
 	auto empty() const { return paths.empty() || bitmaps.empty(); }
+	void clear();
 };

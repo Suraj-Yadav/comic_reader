@@ -26,7 +26,7 @@ ComicGallery::ComicGallery(
 		GALLERY_UPDATE_ID);
 
 	SetBackgroundStyle(wxBG_STYLE_PAINT);
-	SetBackgroundColour(wxColour(25, 25, 25, 1));
+	SetBackgroundColour(wxColour(25, 25, 25));
 
 	loadComics(paths);
 }

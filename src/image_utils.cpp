@@ -105,3 +105,10 @@ const wxBitmap& ImagePool::bitmap(int index) {
 	load(index);
 	return bitmaps[index];
 }
+
+void ImagePool::clear() {
+	int size = static_cast<int>(bitmaps.size());
+	for (int i = 0; i < size; i++) { unload(i); }
+	paths.clear();
+	bitmaps.clear();
+}

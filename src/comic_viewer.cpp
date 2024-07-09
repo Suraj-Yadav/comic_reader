@@ -15,8 +15,9 @@ ComicViewer::ComicViewer(wxWindow* parent, Comic& comic)
 	Bind(wxEVT_LEFT_DOWN, &ComicViewer::OnLeftDown, this);
 	Bind(wxEVT_LEFT_DCLICK, &ComicViewer::OnLeftDClick, this);
 	Bind(wxEVT_SIZE, &ComicViewer::OnSize, this);
+	Bind(wxEVT_CLOSE_WINDOW, &ComicViewer::OnClose, this);
 	SetBackgroundStyle(wxBG_STYLE_PAINT);
-	SetBackgroundColour(wxColour(25, 25, 25, 1));
+	SetBackgroundColour(wxColour(25, 25, 25));
 }
 
 void ComicViewer::load() {
@@ -24,6 +25,11 @@ void ComicViewer::load() {
 		"Loading Comic", "Loading Pages", comic.length(), this);
 	comic.load([&](int i) { dialog.Update(i + 1); });
 	for (auto& page : comic.pages) { pool.addImage(page); }
+}
+
+void ComicViewer::OnClose(wxCloseEvent& event) {
+	comic.unload();
+	pool.clear();
 }
 
 bool ComicViewer::verify(const wxGraphicsContext* gc, int i) {
