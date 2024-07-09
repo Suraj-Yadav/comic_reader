@@ -43,7 +43,9 @@ bool MyApp::OnInit() {
 	::wxInitAllImageHandlers();
 
 	auto frame = new MyFrame();
-	// frame->SetIcon(wxICON(app_icon));
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+	frame->SetIcon(wxICON(app_icon));
+#endif
 	frame->Show(true);
 	frame->LoadComic();
 	frame->SetTitle(DEFAULT_FRAME_TITLE);
