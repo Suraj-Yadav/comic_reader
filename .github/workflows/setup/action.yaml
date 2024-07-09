@@ -19,7 +19,7 @@ runs:
       shell: bash
       run: cmake --build build --target package --config Release
     - uses: actions/upload-artifact@v3
-      # if: startsWith(github.ref, 'refs/tags/v')
+      if: startsWith(github.ref, 'refs/tags/v')
       with:
         name: ${{ inputs.zip-output }}
         path: build/comic_reader-*.zip
