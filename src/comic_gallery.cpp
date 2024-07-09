@@ -26,7 +26,7 @@ ComicGallery::ComicGallery(
 		GALLERY_UPDATE_ID);
 
 	SetBackgroundStyle(wxBG_STYLE_PAINT);
-	SetBackgroundColour(wxColour(25, 25, 25, 1));
+	SetBackgroundColour(wxColour(25, 25, 25));
 
 	loadComics(paths);
 }
@@ -40,10 +40,14 @@ ComicGallery::~ComicGallery() {
 	}
 }
 
-void ComicGallery::AddComic(std::filesystem::path path) {
+bool ComicGallery::AddComic(std::filesystem::path path) {
 	Comic c(path);
-	pool.addImage(c.coverPage);
-	comics.push_back(c);
+	if (c.length() > 0) {
+		pool.addImage(c.coverPage);
+		comics.push_back(c);
+		return true;
+	}
+	return false;
 }
 
 void ComicGallery::loadComics(std::vector<std::filesystem::path> paths) {
@@ -54,18 +58,22 @@ void ComicGallery::loadComics(std::vector<std::filesystem::path> paths) {
 	paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
 	comics.reserve(paths.size());
 
-	AddComic(paths.front());
+	auto offset = 0u;
+	for (; offset < paths.size(); ++offset) {
+		if (AddComic(paths[offset])) { break; }
+	}
 
 	workInBackground.store(false);
 
 	if (!paths.empty()) {
 		workInBackground.store(true);
-		loader = std::async([paths, this]() {
-			for (auto i = 1u; i < paths.size(); ++i) {
+		loader = std::async([paths, offset, this]() {
+			for (auto i = offset + 1; i < paths.size(); ++i) {
 				if (!workInBackground.load()) { return; }
-				AddComic(paths[i]);
-				GetEventHandler()->AddPendingEvent(wxCommandEvent(
-					wxEVT_COMMAND_TEXT_UPDATED, GALLERY_UPDATE_ID));
+				if (AddComic(paths[i])) {
+					GetEventHandler()->AddPendingEvent(wxCommandEvent(
+						wxEVT_COMMAND_TEXT_UPDATED, GALLERY_UPDATE_ID));
+				};
 			}
 			workInBackground.store(false);
 		});
@@ -90,7 +98,7 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 	dc.Clear();
 
 	// direct2d renderer
-	wxGraphicsRenderer* d2dr = wxGraphicsRenderer::GetDirect2DRenderer();
+	wxGraphicsRenderer* d2dr = wxGraphicsRenderer::GetDefaultRenderer();
 	wxGraphicsContext* gc = d2dr->CreateContext(dc);
 
 	if (gc) {
@@ -237,3 +245,5 @@ void ComicGallery::HandleInput(Navigation input, char ch) {
 			});
 	}
 }
+
+int ComicGallery::length() const { return comics.size(); };

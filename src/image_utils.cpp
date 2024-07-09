@@ -49,6 +49,7 @@ wxImage load(const std::filesystem::path& file) {
 bool saveThumbnail(
 	const std::filesystem::path& src, const std::filesystem::path& dest,
 	const int MAX_DIM) {
+	if (!std::filesystem::exists(src)) { return false; }
 	auto img = load(src);
 
 	int W = MAX_DIM, H = MAX_DIM;
@@ -103,4 +104,11 @@ const wxSize ImagePool::size(int index) {
 const wxBitmap& ImagePool::bitmap(int index) {
 	load(index);
 	return bitmaps[index];
+}
+
+void ImagePool::clear() {
+	int size = static_cast<int>(bitmaps.size());
+	for (int i = 0; i < size; i++) { unload(i); }
+	paths.clear();
+	bitmaps.clear();
 }

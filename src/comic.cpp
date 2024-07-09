@@ -8,10 +8,12 @@
 #include "image_utils.hpp"
 #include "util.hpp"
 
-const int THUMB_DIM = (std::min)(
-	wxSystemSettings::GetMetric(wxSYS_SCREEN_X),
-	wxSystemSettings::GetMetric(wxSYS_SCREEN_Y));
-
+int GET_THUMB_DIM() {
+	const static int THUMB_DIM = (std::min)(
+		wxSystemSettings::GetMetric(wxSYS_SCREEN_X),
+		wxSystemSettings::GetMetric(wxSYS_SCREEN_Y));
+	return THUMB_DIM;
+}
 const std::filesystem::path cacheDirectory =
 	std::filesystem::temp_directory_path() / "comicReaderCache";
 
@@ -39,7 +41,7 @@ Comic::Comic(const std::filesystem::path& comicPath)
 		coverPage = getCoverPath(comicPath, fullPath);
 		file.writeContent(coverPage);
 	});
-	saveThumbnail(coverPage, coverPage, THUMB_DIM);
+	saveThumbnail(coverPage, coverPage, GET_THUMB_DIM());
 }
 
 int Comic::length() const { return size; };

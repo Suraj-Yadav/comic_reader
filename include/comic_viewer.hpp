@@ -50,6 +50,7 @@ class ComicViewer : public wxPanel {
 	void OnLeftUp(wxMouseEvent&);
 	void OnSize(wxSizeEvent&);
 	void OnCaptureLost(wxMouseCaptureLostEvent&);
+	void OnClose(wxCloseEvent&);
 
 	void StartPan(const wxPoint2DDouble&, PanSource);
 	void ProcessPan(const wxPoint2DDouble&, bool, PanSource);

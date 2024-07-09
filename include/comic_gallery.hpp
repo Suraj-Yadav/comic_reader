@@ -24,7 +24,7 @@ class ComicGallery : public wxPanel {
 	void OnComicAddition(wxCommandEvent& evt);
 	void OnPaint(wxPaintEvent& evt);
 	void OnSize(wxSizeEvent& event);
-	void AddComic(std::filesystem::path path);
+	bool AddComic(std::filesystem::path path);
 
 	void verify(const wxGraphicsContext* g, int index);
 
@@ -35,4 +35,5 @@ class ComicGallery : public wxPanel {
 	void loadComics(std::vector<std::filesystem::path> paths);
 	void HandleInput(Navigation input, char ch = ' ');
 	Comic& currentComic() { return comics[index]; }
+	int length() const;
 };

@@ -21,9 +21,9 @@ class MyApp : public wxApp {
 wxIMPLEMENT_APP(MyApp);
 
 class MyFrame : public wxFrame {
-	ComicGallery* comicGallery;
-	ComicViewer* comicViewer;
-	wxSizer* sizer;
+	ComicGallery* comicGallery = nullptr;
+	ComicViewer* comicViewer = nullptr;
+	wxSizer* sizer = nullptr;
 
 	void OnKeyDown(wxKeyEvent& event);
 
@@ -43,17 +43,16 @@ bool MyApp::OnInit() {
 	::wxInitAllImageHandlers();
 
 	auto frame = new MyFrame();
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 	frame->SetIcon(wxICON(app_icon));
+#endif
 	frame->Show(true);
 	frame->LoadComic();
 	frame->SetTitle(DEFAULT_FRAME_TITLE);
 	return true;
 }
 
-MyFrame::MyFrame()
-	: wxFrame(nullptr, wxID_ANY, ""),
-	  comicGallery(nullptr),
-	  comicViewer(nullptr) {
+MyFrame::MyFrame() : wxFrame(nullptr, wxID_ANY, "") {
 	Bind(wxEVT_CHAR_HOOK, &MyFrame::OnKeyDown, this);
 }
 
@@ -69,7 +68,7 @@ void MyFrame::OnKeyDown(wxKeyEvent& event) {
 			case WXK_ESCAPE:
 				sizer->Remove(1);
 				sizer->Show(size_t(0));
-				comicViewer->Destroy();
+				comicViewer->Close();
 				comicViewer = nullptr;
 				comicGallery->currentComic().unload();
 				Layout();
@@ -96,7 +95,7 @@ void MyFrame::OnKeyDown(wxKeyEvent& event) {
 						new ComicViewer(this, comicGallery->currentComic());
 					comicViewer->load();
 				} catch (const std::exception& e) {
-					comicViewer->Destroy();
+					comicViewer->Close();
 					comicViewer = nullptr;
 					wxMessageBox(e.what(), "Error while opening comic");
 					return;
@@ -137,6 +136,10 @@ void MyFrame::LoadComic() {
 
 	sizer = new wxBoxSizer(wxVERTICAL);
 	comicGallery = new ComicGallery(this, paths);
+	if (comicGallery->length() == 0) {
+		wxMessageBox("No Valid Comic file found");
+		Close();
+	}
 	sizer->Add(comicGallery, wxSizerFlags(1).Expand());
 
 	SetSizer(sizer);

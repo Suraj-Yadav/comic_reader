@@ -1,0 +1,25 @@
+name: 'Build'
+inputs:
+  zip-output:
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/github-script@v6
+      with:
+        script: |
+          core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+          core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+    - name: cmake configure
+      shell: bash
+      run: |
+        export CMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake
+        cmake -B build -S . || cat build/vcpkg_installed/vcpkg/issue_body.md
+    - name: cmake build
+      shell: bash
+      run: cmake --build build --target package --config Release
+    - uses: actions/upload-artifact@v3
+      if: startsWith(github.ref, 'refs/tags/v')
+      with:
+        name: ${{ inputs.zip-output }}
+        path: build/comic_reader-*.zip
