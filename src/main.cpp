@@ -24,6 +24,7 @@ class MyFrame : public wxFrame {
 	ComicGallery* comicGallery = nullptr;
 	ComicViewer* comicViewer = nullptr;
 	wxSizer* sizer = nullptr;
+	int lastKeyCode = 0;
 
 	void OnKeyDown(wxKeyEvent& event);
 
@@ -75,7 +76,8 @@ void MyFrame::OnKeyDown(wxKeyEvent& event) {
 				SetTitle(DEFAULT_FRAME_TITLE);
 				break;
 			case 'G':
-				if (event.CmdDown() || event.ControlDown()) {
+				if ((event.CmdDown() || event.ControlDown()) &&
+					lastKeyCode != event.GetKeyCode()) {
 					comicViewer->HandleInput(Navigation::JumpToPage);
 				}
 				break;
@@ -115,6 +117,7 @@ void MyFrame::OnKeyDown(wxKeyEvent& event) {
 				break;
 		}
 	}
+	lastKeyCode = event.GetKeyCode();
 	event.Skip();
 }
 
