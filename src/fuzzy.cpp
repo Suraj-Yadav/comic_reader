@@ -1,12 +1,13 @@
 #include "fuzzy.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace fuzzy {
 	const double epsilon = 0.000001;
 
 	double delta(double a, double b) {
-		return std::max(std::max(std::abs(a), std::abs(b)), epsilon) * 0.01;
+		return std::max({std::abs(a), std::abs(b), epsilon}) * 0.01;
 	}
 
 	bool less(double a, double b) { return a < (b - delta(a, b)); }
