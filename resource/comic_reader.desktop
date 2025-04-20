@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Comic Reader
+Icon=comic_reader
+Exec=comic_reader
+Categories=Graphics
+Comment=A Simple Comic book reader
