@@ -8,7 +8,8 @@ project(comic_reader LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS
     ON
-    CACHE INTERNAL "")
+    CACHE INTERNAL ""
+)
 
 find_package(LibArchive REQUIRED)
 find_package(Tweeny CONFIG REQUIRED)
@@ -24,10 +25,12 @@ add_library(
   src/fuzzy.cpp
   src/image_utils.cpp
   src/viewport.cpp
-  src/wxUtil.cpp)
+  src/wxUtil.cpp
+)
 
-target_link_libraries(common_lib PUBLIC LibArchive::LibArchive tweeny
-                                        WebP::webp wx::core)
+target_link_libraries(
+  common_lib PUBLIC LibArchive::LibArchive tweeny WebP::webp wx::core
+)
 
 target_include_directories(common_lib PUBLIC "${CMAKE_SOURCE_DIR}/include")
 
@@ -50,7 +53,7 @@ install(
           "pdmutilities"
           POST_EXCLUDE_REGEXES
           ".*system32/.*\\.dll"
-  RUNTIME DESTINATION .)
+)
 set(CPACK_PACKAGE_VERSION ${VERSION_STRING})
 include(CPack)
 
@@ -59,16 +62,19 @@ find_package(benchmark CONFIG REQUIRED)
 find_package(GTest CONFIG REQUIRED)
 
 set(TEST_SRCS src/archive_test.cpp src/comic_test.cpp src/fuzzy_test.cpp
-              src/lru_test.cpp)
+              src/lru_test.cpp
+)
 
 add_executable(tests ${TEST_SRCS})
-target_link_libraries(tests PRIVATE common_lib GTest::gtest
-                                    benchmark::benchmark GTest::gtest_main)
+target_link_libraries(
+  tests PRIVATE common_lib GTest::gtest benchmark::benchmark GTest::gtest_main
+)
 
 add_executable(benchmarks ${TEST_SRCS})
 target_link_libraries(
   benchmarks PRIVATE common_lib GTest::gtest benchmark::benchmark
-                     benchmark::benchmark_main)
+                     benchmark::benchmark_main
+)
 
 if(MSVC)
   add_custom_target(
@@ -88,5 +94,6 @@ if(MSVC)
     $<TARGET_FILE:tests>
     --gtest_output=xml:${CMAKE_BINARY_DIR}/test.xml
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    DEPENDS tests)
+    DEPENDS tests
+  )
 endif()
