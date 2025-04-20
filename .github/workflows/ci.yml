@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install deps
-        run: sudo apt update && sudo apt install -y x11-xserver-utils libxi-dev libxtst-dev python3-jinja2 libxrandr-dev 
+        run: sudo apt update && sudo apt install -y x11-xserver-utils libxi-dev libxtst-dev python3-jinja2 libxrandr-dev libltdl-dev 
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0

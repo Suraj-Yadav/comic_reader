@@ -9,9 +9,8 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --target package --config Release
 
 pushd build
+FILE=$(ls comic_reader-*.zip)
 if [ "$RUNNER_OS" = "Linux" ]; then
-	FILE=$(ls comic_reader-*.zip)
-
 	rm -rf AppDir
 
 	export APPIMAGE_EXTRACT_AND_RUN=1
