@@ -27,4 +27,4 @@ runs:
       if: ${{ startsWith(github.ref, 'refs/tags/v') && runner.os == 'Linux' }}
       with:
         name: ${{ inputs.output }}
-        path: build/Comic_Reader.AppImage
+        path: build/comic_reader.AppImage
