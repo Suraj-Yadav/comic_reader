@@ -14,7 +14,7 @@ runs:
           vcpkg-bin-${{ runner.os }}-
     - name: build
       env:
-        VCPKG_BINARY_SOURCES: "clear;files,$HOME/.cache/vcpkg,readwrite"
+        VCPKG_BINARY_SOURCES: "clear;files,~/.cache/vcpkg,readwrite"
       shell: bash
       run: bash ./resource/builder.sh
     - uses: actions/upload-artifact@v4
