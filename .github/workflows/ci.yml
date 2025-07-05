@@ -13,7 +13,6 @@ jobs:
   build-windows:
     env:
       VCPKG_DEFAULT_TRIPLET: x64-windows
-      VCPKG_BINARY_SOURCES: clear;x-gha,readwrite
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
@@ -25,7 +24,6 @@ jobs:
   build-linux:
     env:
       VCPKG_DEFAULT_TRIPLET: x64-linux
-      VCPKG_BINARY_SOURCES: clear;x-gha,readwrite
     runs-on: ubuntu-latest
     steps:
       - name: Install deps
@@ -57,4 +55,5 @@ jobs:
           prerelease: false
           files: |
             comic_reader-win64.zip
-            comic_reader.AppImage
+            Comic_Reader-x86_64.AppImage
+            Comic_Reader-x86_64.AppImage.zsync
