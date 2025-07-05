@@ -8,13 +8,13 @@ runs:
     - name: Restore vcpkg binary cache
       uses: actions/cache@v3
       with:
-        path: /home/.cache/vcpkg
+        path: $VCPKG_INSTALLATION_ROOT/.cache/vcpkg
         key: vcpkg-bin-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
         restore-keys: |
           vcpkg-bin-${{ runner.os }}-
     - name: build
       env:
-        VCPKG_BINARY_SOURCES: "clear;files,/home/.cache/vcpkg,readwrite"
+        VCPKG_BINARY_SOURCES: "clear;files,$VCPKG_INSTALLATION_ROOT/.cache/vcpkg,readwrite"
       shell: bash
       run: bash ./resource/builder.sh
     - uses: actions/upload-artifact@v4
