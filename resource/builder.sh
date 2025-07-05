@@ -4,7 +4,10 @@ set -e
 
 export CMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake
 
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release || cat build/vcpkg_installed/vcpkg/issue_body.md
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release || {
+	cat build/vcpkg_installed/vcpkg/issue_body.md
+	exit 1
+}
 
 cmake --build build --target package --config Release
 
