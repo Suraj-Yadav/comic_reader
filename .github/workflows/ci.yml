@@ -13,7 +13,6 @@ jobs:
   build-windows:
     env:
       VCPKG_DEFAULT_TRIPLET: x64-windows
-      VCPKG_BINARY_SOURCES: clear;x-gha,readwrite
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
@@ -25,7 +24,6 @@ jobs:
   build-linux:
     env:
       VCPKG_DEFAULT_TRIPLET: x64-linux
-      VCPKG_BINARY_SOURCES: clear;x-gha,readwrite
     runs-on: ubuntu-latest
     steps:
       - name: Install deps
@@ -38,7 +36,6 @@ jobs:
           output: linux-output
     
   create-release:
-    if: startsWith(github.ref, 'refs/tags/v')
     needs:
       - build-windows
       - build-linux
@@ -52,9 +49,11 @@ jobs:
           name: linux-output
       - run: ls
       - uses: marvinpinto/action-automatic-releases@latest
+        if: startsWith(github.ref, 'refs/tags/v')
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
           files: |
             comic_reader-win64.zip
-            comic_reader.AppImage
+            Comic_Reader-x86_64.AppImage
+            Comic_Reader-x86_64.AppImage.zsync

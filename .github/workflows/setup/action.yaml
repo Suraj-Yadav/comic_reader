@@ -5,26 +5,27 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/github-script@v6
+    - name: Restore vcpkg binary cache
+      uses: actions/cache@v3
       with:
-        script: |
-          core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
-          core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
-    - name: cmake configure
-      shell: bash
-      run: |
-        export CMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake
-        cmake -B build -S . || cat build/vcpkg_installed/vcpkg/issue_body.md
+        path: ${{ github.workspace }}/vcpkg_cache
+        key: vcpkg-bin-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-bin-${{ runner.os }}-
     - name: build
+      env:
+        VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg_cache,readwrite"
       shell: bash
       run: bash ./resource/builder.sh
     - uses: actions/upload-artifact@v4
-      if: ${{ startsWith(github.ref, 'refs/tags/v') && runner.os == 'Windows' }}
+      if: ${{ runner.os == 'Windows' }}
       with:
         name: ${{ inputs.output }}
         path: build/comic_reader-win64.zip
     - uses: actions/upload-artifact@v4
-      if: ${{ startsWith(github.ref, 'refs/tags/v') && runner.os == 'Linux' }}
+      if: ${{ runner.os == 'Linux' }}
       with:
         name: ${{ inputs.output }}
-        path: build/comic_reader.AppImage
+        path: |
+          build/Comic_Reader-x86_64.AppImage
+          build/Comic_Reader-x86_64.AppImage.zsync
