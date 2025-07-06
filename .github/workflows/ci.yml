@@ -36,7 +36,6 @@ jobs:
           output: linux-output
     
   create-release:
-    if: startsWith(github.ref, 'refs/tags/v')
     needs:
       - build-windows
       - build-linux
@@ -50,6 +49,7 @@ jobs:
           name: linux-output
       - run: ls
       - uses: marvinpinto/action-automatic-releases@latest
+        if: startsWith(github.ref, 'refs/tags/v')
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
