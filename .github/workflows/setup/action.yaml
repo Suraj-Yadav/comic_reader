@@ -18,12 +18,12 @@ runs:
       shell: bash
       run: bash ./resource/builder.sh
     - uses: actions/upload-artifact@v4
-      if: ${{ startsWith(github.ref, 'refs/tags/v') && runner.os == 'Windows' }}
+      if: ${{ runner.os == 'Windows' }}
       with:
         name: ${{ inputs.output }}
         path: build/comic_reader-win64.zip
     - uses: actions/upload-artifact@v4
-      if: ${{ startsWith(github.ref, 'refs/tags/v') && runner.os == 'Linux' }}
+      if: ${{ runner.os == 'Linux' }}
       with:
         name: ${{ inputs.output }}
         path: |
