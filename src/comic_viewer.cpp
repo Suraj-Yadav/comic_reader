@@ -209,6 +209,7 @@ void ComicViewer::NextZoom(const wxPoint& pt) {
 	}
 
 	viewport.ScaleAtPoint(MapClientToViewport(pt), currentZoom / nextZoom);
+	Refresh();
 }
 
 double ComicViewer::GetZoom() {
@@ -268,7 +269,6 @@ void ComicViewer::OnMouseWheel(wxMouseEvent& event) {
 
 void ComicViewer::OnLeftDClick(wxMouseEvent& event) {
 	NextZoom(event.GetPosition());
-	Refresh();
 	event.Skip();
 }
 
