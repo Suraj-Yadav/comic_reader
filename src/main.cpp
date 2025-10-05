@@ -75,6 +75,9 @@ void MyFrame::OnKeyDown(wxKeyEvent& event) {
 				Layout();
 				SetTitle(DEFAULT_FRAME_TITLE);
 				break;
+			case 'Z':
+				comicViewer->NextZoom(event.GetPosition());
+				break;
 			case 'G':
 				if ((event.CmdDown() || event.ControlDown()) &&
 					lastKeyCode != event.GetKeyCode()) {

@@ -58,7 +58,6 @@ class ComicViewer : public wxPanel {
 
 	std::pair<Navigation, wxPoint2DDouble> ComputeMove(Navigation direction);
 	void OptimizeViewport();
-	void NextZoom(const wxPoint&);
 	wxPoint2DDouble MapClientToViewport(const wxPoint&);
 	double GetZoom();
 	bool verify(const wxGraphicsContext* g, int index);
@@ -67,4 +66,5 @@ class ComicViewer : public wxPanel {
 	ComicViewer(wxWindow* parent, Comic& comic);
 	void load();
 	void HandleInput(Navigation);
+	void NextZoom(const wxPoint& pt);
 };
