@@ -8,9 +8,15 @@
 
 bool saveThumbnail(
 	const std::filesystem::path& src, const std::filesystem::path& dest,
-	const int MAX_DIM);
+	int MAX_DIM);
 
 bool isImage(const std::filesystem::path& file);
+
+constexpr unsigned long long B = 1;
+constexpr auto KB = 1024 * B;
+constexpr auto MB = 1024 * KB;
+constexpr auto GB = 1024 * MB;
+constexpr auto TB = 1024 * GB;
 
 class ImagePool {
 	std::vector<std::filesystem::path> paths;
@@ -23,7 +29,7 @@ class ImagePool {
    public:
 	ImagePool();
 	bool addImage(const std::filesystem::path& filepath);
-	const wxSize size(int index);
+	wxSize size(int index);
 	const wxBitmap& bitmap(int index);
 	auto empty() const { return paths.empty() || bitmaps.empty(); }
 	void clear();

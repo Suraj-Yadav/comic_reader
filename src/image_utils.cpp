@@ -4,46 +4,14 @@
 #include <webp/encode.h>
 #include <wx/bitmap.h>
 
-#include <cstring>
 #include <filesystem>
-#include <fstream>
-
-#include "archive.hpp"
-#include "util.hpp"
 
 bool save(const std::filesystem::path& file, const wxImage& img) {
-	if (file.extension() != ".webp") { return img.SaveFile(file.string()); }
-	uint8_t* bytes;
-	auto size = WebPEncodeLosslessRGB(
-		img.GetData(), img.GetWidth(), img.GetHeight(), img.GetWidth() * 3,
-		&bytes);
-	if (size == 0) { return false; }
-	std::basic_ofstream<uint8_t, std::char_traits<uint8_t>> output(
-		file, std::ios::binary);
-	output.write(bytes, size);
-	WebPFree(bytes);
-	output.close();
-	return true;
+	return img.SaveFile(file.string());
 }
 
 wxImage load(const std::filesystem::path& file) {
-	if (file.extension() != ".webp") {
-		return wxImage(file.string(), wxBITMAP_TYPE_ANY);
-	}
-	std::basic_ifstream<uint8_t, std::char_traits<uint8_t>> input(
-		file, std::ios::binary);
-	std::vector<uint8_t> bytes(
-		(std::istreambuf_iterator<uint8_t>(input)),
-		std::istreambuf_iterator<uint8_t>());
-	input.close();
-
-	int iw = 0;
-	int ih = 0;
-	auto pixels = WebPDecodeRGB(bytes.data(), bytes.size(), &iw, &ih);
-	wxImage img(iw, ih);
-	std::memcpy(img.GetData(), pixels, iw * ih * 3);
-	WebPFree(pixels);
-	return img;
+	return wxImage(file.string(), wxBITMAP_TYPE_ANY);
 }
 
 bool saveThumbnail(
@@ -59,7 +27,8 @@ bool saveThumbnail(
 				src, dest, std::filesystem::copy_options::overwrite_existing);
 		}
 		return true;
-	} else if (img.GetWidth() > img.GetHeight()) {
+	}
+	if (img.GetWidth() > img.GetHeight()) {
 		H = (img.GetHeight() * MAX_DIM) / img.GetWidth();
 	} else {
 		W = (img.GetWidth() * MAX_DIM) / img.GetHeight();
@@ -73,7 +42,9 @@ bool isImage(const std::filesystem::path& file) {
 		   ext == ".gif";
 }
 
-ImagePool::ImagePool() : lru(1024 * 1024 * 200, 3) {  // Limit to ~200 MB
+constexpr auto MEMORY_LIMIT = 200 * MB;
+
+ImagePool::ImagePool() : lru(MEMORY_LIMIT, 3) {	 // Limit to ~200 MB
 	lru.addEvictionHook([this](int i) { unload(i); });
 }
 
@@ -92,11 +63,11 @@ void ImagePool::load(int index) {
 }
 
 void ImagePool::unload(int index) {
-	if (!bitmaps[index].IsOk()) return;
+	if (!bitmaps[index].IsOk()) { return; }
 	bitmaps[index].UnRef();
 }
 
-const wxSize ImagePool::size(int index) {
+wxSize ImagePool::size(int index) {
 	load(index);
 	return bitmap(index).GetSize();
 }

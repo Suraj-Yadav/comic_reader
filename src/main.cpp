@@ -10,7 +10,6 @@
 #include "comic.hpp"
 #include "comic_gallery.hpp"
 #include "comic_viewer.hpp"
-#include "util.hpp"
 
 class MyApp : public wxApp {
    public:
@@ -43,7 +42,7 @@ int MyApp::OnExit() {
 bool MyApp::OnInit() {
 	::wxInitAllImageHandlers();
 
-	auto frame = new MyFrame();
+	auto* frame = new MyFrame();
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 	frame->SetIcon(wxICON(app_icon));
 #endif
