@@ -29,7 +29,7 @@ class MyFrame : public wxFrame {
 
    public:
 	MyFrame();
-	void LoadComic();
+	void LoadComic(const wxArrayString& args);
 };
 
 const auto DEFAULT_FRAME_TITLE = "Select Comic";
@@ -47,7 +47,7 @@ bool MyApp::OnInit() {
 	frame->SetIcon(wxICON(app_icon));
 #endif
 	frame->Show(true);
-	frame->LoadComic();
+	frame->LoadComic(argv.GetArguments());
 	frame->SetTitle(DEFAULT_FRAME_TITLE);
 	return true;
 }
@@ -123,9 +123,12 @@ void MyFrame::OnKeyDown(wxKeyEvent& event) {
 	event.Skip();
 }
 
-void MyFrame::LoadComic() {
+void MyFrame::LoadComic(const wxArrayString& args) {
 	std::vector<std::filesystem::path> paths;
-	{
+	for (auto i = 1u; i < args.size(); ++i) {
+		paths.emplace_back(args[i].ToStdString());
+	}
+	if (paths.empty()) {
 		wxFileDialog openFileDialog(
 			this, "Open Comic", "", "",
 			"Comic Files (*.cbr;*.cbz)|*.cbr;*.cbz|"

@@ -2,7 +2,12 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <filesystem>
 #include <map>
+#include <string>
+
+std::atomic_int tempFolderCounter;
 
 class ArchiveTestFixtures
 	: public ::testing::TestWithParam<std::filesystem::path> {};
@@ -13,7 +18,8 @@ TEST_P(ArchiveTestFixtures, VerifyArchive) {
 		{"a/b.txt", 1}, {"c.txt", 2}, {"test.png", 11645}};
 
 	std::map<std::filesystem::path, int64_t> filesFound;
-	auto tempDir = std::filesystem::path(std::tmpnam(nullptr));
+	auto tempDir = std::filesystem::temp_directory_path() / "archive_test" /
+				   std::to_string(tempFolderCounter.fetch_add(1));
 
 	processArchiveFile(filePath, [&](const ArchiveFile& file) {
 		if (file.isFile()) {
