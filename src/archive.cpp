@@ -5,10 +5,7 @@
 #include <array>
 #include <filesystem>
 #include <fstream>
-#include <memory>
 #include <stdexcept>
-
-#include "util.hpp"
 
 ArchiveFile::ArchiveFile(struct archive* ap, archive_entry* e)
 	: archivePtr(ap), entry(e) {}
@@ -70,10 +67,10 @@ void processArchiveFile(
 		auto r = archive_read_next_header(archive, &entry);
 		if (r == ARCHIVE_EOF) { break; }
 		if (r != ARCHIVE_OK) {
+			std::string errorString = archive_error_string(archive);
 			archive_read_close(archive);
 			throw std::invalid_argument(
-				std::string("Unable to read next header: ") +
-				archive_error_string(archive));
+				"Unable to read next header: " + errorString);
 		}
 		func(ArchiveFile(archive, entry));
 	}

@@ -13,24 +13,20 @@ cmake --build build --target package --config Release
 
 pushd build
 FILE=$(ls comic_reader-*.zip)
-if [ "$RUNNER_OS" = "Linux" ]; then
-	rm -rf AppDir
+rm -rf AppDir
 
-	export APPIMAGE_EXTRACT_AND_RUN=1
-	export NO_STRIP=true
-	export UPDATE_INFORMATION='gh-releases-zsync|Suraj-Yadav|comic_reader|latest|Comic_Reader-*x86_64.AppImage.zsync'
+export APPIMAGE_EXTRACT_AND_RUN=1
+export NO_STRIP=true
+export UPDATE_INFORMATION='gh-releases-zsync|Suraj-Yadav|comic_reader|latest|Comic_Reader-*x86_64.AppImage.zsync'
 
-	NAME="${FILE%.*}"
-	unzip $FILE
-	mv $NAME AppDir
+NAME="${FILE%.*}"
+unzip $FILE
+mv $NAME AppDir
 
-	pushd /tmp
+pushd /tmp
 	wget -c https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-	chmod +x linuxdeploy-*.AppImage
-	popd
+chmod +x linuxdeploy-*.AppImage
+popd
 
-	/tmp/linuxdeploy-*.AppImage --appdir AppDir --desktop-file ../resource/comic_reader.desktop --icon-file ../resource/comic_reader.png -e AppDir/bin/comic_reader --output appimage
-else
-	mv $FILE comic_reader-win64.zip
-fi
+/tmp/linuxdeploy-*.AppImage --appdir AppDir --desktop-file ../resource/comic_reader.desktop --icon-file ../resource/comic_reader.png -e AppDir/bin/comic_reader --output appimage
 popd

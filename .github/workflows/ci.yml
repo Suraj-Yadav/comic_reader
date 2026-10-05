@@ -10,50 +10,37 @@ defaults:
   run:
     shell: bash
 jobs:
-  build-windows:
-    env:
-      VCPKG_DEFAULT_TRIPLET: x64-windows
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - uses: './.github/workflows/setup'
-        with:
-          output: windows-output
   build-linux:
-    env:
-      VCPKG_DEFAULT_TRIPLET: x64-linux
     runs-on: ubuntu-latest
     steps:
-      - name: Install deps
-        run: sudo apt update && sudo apt install -y x11-xserver-utils libxi-dev libxtst-dev python3-jinja2 libxrandr-dev libltdl-dev 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: './.github/workflows/setup'
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
         with:
-          output: linux-output
-    
+          context: .
+          target: artifacts
+          outputs: type=local,dest=./dist
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-output
+          path: dist/
+
   create-release:
-    needs:
-      - build-windows
-      - build-linux
-    runs-on: macos-latest
+    needs: [build-linux]
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: windows-output
       - uses: actions/download-artifact@v4
         with:
           name: linux-output
-      - run: ls
       - uses: marvinpinto/action-automatic-releases@latest
         if: startsWith(github.ref, 'refs/tags/v')
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
           files: |
-            comic_reader-win64.zip
             Comic_Reader-x86_64.AppImage
             Comic_Reader-x86_64.AppImage.zsync

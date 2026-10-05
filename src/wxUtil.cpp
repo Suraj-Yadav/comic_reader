@@ -2,7 +2,7 @@
 
 #include <wx/brush.h>
 
-#include "util.hpp"
+#include <cmath>
 
 std::vector<std::pair<std::string, double>> split(
 	const std::string& text, const wxArrayDouble& widths,  //
@@ -38,7 +38,7 @@ double drawWrappedText(
 	std::reverse(lines.begin(), lines.end());
 	gc->SetFont(
 		gc->CreateFont(wxFontInfo(15).Family(wxFONTFAMILY_DEFAULT), *wxWHITE));
-	double w, h, d, e;
+	double w = NAN, h = NAN, d = NAN, e = NAN;
 	gc->GetTextExtent(lines[0], &w, &h, &d, &e);
 
 	int totalWords = 0;
