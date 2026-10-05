@@ -26,3 +26,4 @@ RUN bash ./resource/builder.sh
 
 FROM scratch AS artifacts
 COPY --from=build /src/build/Comic_Reader-x86_64.AppImage /
+COPY --from=build /src/build/Comic_Reader-x86_64.AppImage.zsync /
