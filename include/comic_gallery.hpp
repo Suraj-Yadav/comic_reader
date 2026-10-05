@@ -3,7 +3,6 @@
 #include <wx/graphics.h>
 #include <wx/panel.h>
 
-#include <filesystem>
 #include <future>
 #include <vector>
 
@@ -21,18 +20,17 @@ class ComicGallery : public wxPanel {
 	std::atomic_bool workInBackground;
 	std::future<void> loader;
 
-	void OnComicAddition(wxCommandEvent& evt);
-	void OnPaint(wxPaintEvent& evt);
+	void OnComicAddition(wxCommandEvent& event);
+	void OnPaint(wxPaintEvent& event);
 	void OnSize(wxSizeEvent& event);
-	bool AddComic(std::filesystem::path path);
+	bool AddComic(ComicSource src);
 
 	void verify(const wxGraphicsContext* g, int index);
 
    public:
-	ComicGallery(
-		wxWindow* parent, const std::vector<std::filesystem::path>& paths);
+	ComicGallery(wxWindow* parent);
 	~ComicGallery();
-	void loadComics(std::vector<std::filesystem::path> paths);
+	void loadComics(std::vector<ComicSource> paths);
 	void HandleInput(Navigation input, char ch = ' ');
 	Comic& currentComic() { return comics[index]; }
 	int length() const;

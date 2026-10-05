@@ -2,20 +2,32 @@
 
 #include <filesystem>
 #include <functional>
+#include <string>
 
 extern const std::filesystem::path cacheDirectory;
-extern const int THUMB_DIM;
+
+struct ComicSource {
+	std::filesystem::path path;
+	int chapterId = -1;
+
+	bool operator<=>(const ComicSource&) const = default;
+};
+
+using ProgressUpdate = std::function<void(int i)>;
 
 class Comic {
-	std::filesystem::path comicPath;
+	ComicSource src;
 	int size;
+	std::string name;
+	std::string storage;
 
    public:
-	Comic(const std::filesystem::path& comicPath);
-	void load(std::function<void(int i)> progress = nullptr);
+	Comic(ComicSource source);
+	void load(ProgressUpdate progress = nullptr);
 	void unload();
-	int length() const;
-	std::string getName() const;
+	[[nodiscard]] int length() const;
+	[[nodiscard]] std::string getName() const;
+	void markAsRead() const;
 	std::filesystem::path coverPage;
 	std::vector<std::filesystem::path> pages;
 };

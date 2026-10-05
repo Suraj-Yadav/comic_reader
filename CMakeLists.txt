@@ -5,7 +5,7 @@ parse_git_tag()
 
 project(comic_reader LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_EXPORT_COMPILE_COMMANDS
     ON
     CACHE INTERNAL ""
@@ -14,6 +14,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS
 find_package(LibArchive REQUIRED)
 find_package(Tweeny CONFIG REQUIRED)
 find_package(WebP CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 find_package(wxWidgets CONFIG REQUIRED)
 
 add_library(
@@ -24,12 +25,20 @@ add_library(
   src/comic.cpp
   src/fuzzy.cpp
   src/image_utils.cpp
+  src/network.cpp
   src/viewport.cpp
   src/wxUtil.cpp
 )
 
 target_link_libraries(
-  common_lib PUBLIC LibArchive::LibArchive tweeny WebP::webp wx::core
+  common_lib
+  PUBLIC LibArchive::LibArchive
+         tweeny
+         WebP::webp
+         wx::base
+         wx::core
+         wx::net
+         nlohmann_json::nlohmann_json
 )
 
 target_include_directories(common_lib PUBLIC "${CMAKE_SOURCE_DIR}/include")

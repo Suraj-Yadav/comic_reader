@@ -1,23 +1,24 @@
 #include "comic_gallery.hpp"
 
 #include <wx/dcbuffer.h>
+#include <wx/gdicmn.h>
 #include <wx/progdlg.h>
+#include <wx/renderer.h>
 
 #include <algorithm>
 #include <cmath>
 #include <future>
 #include <queue>
+#include <ranges>
+#include <utility>
 
 #include "comic.hpp"
 #include "comic_viewer.hpp"
-#include "fuzzy.hpp"
-#include "util.hpp"
 #include "wxUtil.hpp"
 
 const int GALLERY_UPDATE_ID = 100000;
 
-ComicGallery::ComicGallery(
-	wxWindow* parent, const std::vector<std::filesystem::path>& paths)
+ComicGallery::ComicGallery(wxWindow* parent)
 	: wxPanel(parent), index(0), workInBackground(false) {
 	Bind(wxEVT_PAINT, &ComicGallery::OnPaint, this);
 	Bind(wxEVT_SIZE, &ComicGallery::OnSize, this);
@@ -27,8 +28,6 @@ ComicGallery::ComicGallery(
 
 	SetBackgroundStyle(wxBG_STYLE_PAINT);
 	SetBackgroundColour(wxColour(25, 25, 25));
-
-	loadComics(paths);
 }
 
 ComicGallery::~ComicGallery() {
@@ -40,8 +39,8 @@ ComicGallery::~ComicGallery() {
 	}
 }
 
-bool ComicGallery::AddComic(std::filesystem::path path) {
-	Comic c(path);
+bool ComicGallery::AddComic(ComicSource src) {
+	Comic c(std::move(src));
 	if (c.length() > 0) {
 		pool.addImage(c.coverPage);
 		comics.push_back(c);
@@ -50,12 +49,18 @@ bool ComicGallery::AddComic(std::filesystem::path path) {
 	return false;
 }
 
-void ComicGallery::loadComics(std::vector<std::filesystem::path> paths) {
+void ComicGallery::loadComics(std::vector<ComicSource> paths) {
 	if (paths.empty()) { return; }
-	std::sort(paths.begin(), paths.end(), [](const auto& a, const auto& b) {
-		return wxCmpNatural(a.stem().string(), b.stem().string()) < 0;
-	});
-	paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
+	pool.clear();
+	comics.clear();
+	if (!paths[0].path.empty()) {
+		std::ranges::sort(paths, [](const auto& a, const auto& b) {
+			return wxCmpNatural(
+					   a.path.stem().string(), b.path.stem().string()) < 0;
+		});
+	}
+	auto ret = std::ranges::unique(paths);
+	paths.erase(ret.begin(), ret.end());
 	comics.reserve(paths.size());
 
 	auto offset = 0u;
@@ -87,9 +92,9 @@ template <typename T, typename U> T mix(T x, T y, U a) {
 	return x * (1 - a) + a * y;
 }
 
-void ComicGallery::OnComicAddition(wxCommandEvent& event) { Refresh(); }
+void ComicGallery::OnComicAddition(wxCommandEvent& /* event */) { Refresh(); }
 
-void ComicGallery::OnPaint(wxPaintEvent& event) {
+void ComicGallery::OnPaint(wxPaintEvent& /* event */) {
 	const double FOCUSED_COMIC = 0.9, REST_COMIC = 0.7;
 
 	if (comics.empty()) { return; }
@@ -149,7 +154,7 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 			auto i = coversToConsider.front();
 			coversToConsider.pop();
 
-			if (i < 0 || i >= size) continue;
+			if (i < 0 || i >= size) { continue; }
 			verify(gc, i);
 
 			auto sgn = i > idx ? 1 : -1;
@@ -185,10 +190,8 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 
 		// Draw loading bar
 		if (workInBackground.load()) {
-			gc->SetBrush(wxBrush(*wxRED_BRUSH));
-			gc->DrawRectangle(0, 0, cw, 5);
-			gc->SetBrush(wxBrush(*wxGREEN_BRUSH));
-			gc->DrawRectangle(0, 0, float(size * cw) / comics.capacity(), 5);
+			wxRendererNative::Get().DrawGauge(
+				this, dc, wxRect(0, 0, cw, 10), size, comics.capacity());
 		}
 
 		// Draw comics
@@ -207,7 +210,7 @@ void ComicGallery::OnPaint(wxPaintEvent& event) {
 		delete gc;
 	}
 }
-void ComicGallery::OnSize(wxSizeEvent& event) { Refresh(); }
+void ComicGallery::OnSize(wxSizeEvent& /* event */) { Refresh(); }
 
 void ComicGallery::HandleInput(Navigation input, char ch) {
 	if (animator.IsRunning()) { return; }
@@ -221,10 +224,9 @@ void ComicGallery::HandleInput(Navigation input, char ch) {
 			nextIndex = std::min(index + 1, int(comics.size() - 1));
 			break;
 		case Navigation::JumpToComic: {
-			auto itr =
-				std::find_if(comics.begin(), comics.end(), [ch](const auto& c) {
-					return wxCmpNatural(wxString(ch), c.getName()) < 0;
-				});
+			auto itr = std::ranges::find_if(comics, [ch](const auto& c) {
+				return wxCmpNatural(wxString(ch), c.getName()) < 0;
+			});
 			if (itr == comics.end()) { itr--; }
 			nextIndex = std::distance(comics.begin(), itr);
 			break;

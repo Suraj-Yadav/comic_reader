@@ -9,6 +9,7 @@
             "default-features": false
         },
         "libwebp",
+        "nlohmann-json",
         "tweeny",
         {
             "name": "wxwidgets",

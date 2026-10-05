@@ -5,6 +5,7 @@
 #include <wx/progdlg.h>
 
 #include "fuzzy.hpp"
+#include "network.hpp"
 #include "util.hpp"
 #include "wxUtil.hpp"
 
@@ -147,6 +148,8 @@ void ComicViewer::HandleInput(Navigation input) {
 			MAX_DURATION_MS, {}, delta,	 //
 			[this](auto v) { ProcessPan(v, true, PanSource::Animation); },
 			[this]() { FinishPan(true, PanSource::Animation); });
+	} else if (index == (comic.length() - 1) && input == Navigation::NextView) {
+		comic.markAsRead();
 	}
 }
 
