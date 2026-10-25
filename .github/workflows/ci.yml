@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - '**'        # matches every branch
-      - '!master'
+      - '!main'
     tags:
       - '**'        # matches every tag
 defaults:
