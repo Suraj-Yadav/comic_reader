@@ -9,6 +9,8 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release || {
 	exit 1
 }
 
+rm build/comic_reader-*.zip
+
 cmake --build build --target package --config Release
 
 pushd build

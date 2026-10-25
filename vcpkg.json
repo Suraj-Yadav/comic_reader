@@ -3,6 +3,7 @@
     "name": "comic-reader",
     "dependencies": [
         "benchmark",
+        "cpr",
         "gtest",
         {
             "name": "libarchive",

@@ -2,21 +2,39 @@
 #include <wx/config.h>
 #include <wx/frame.h>
 #include <wx/graphics.h>
+#include <wx/log.h>
 #include <wx/msgdlg.h>
+#include <wx/strconv.h>
 
 #include <algorithm>
-#include <array>
 #include <cctype>
+#include <chrono>
 #include <exception>
 #include <filesystem>
-#include <ranges>
+#include <functional>
 #include <vector>
 
 #include "comic.hpp"
 #include "comic_gallery.hpp"
 #include "comic_viewer.hpp"
 #include "network.hpp"
-#include "util.hpp"
+
+using namespace std::chrono_literals;
+
+class Debouncer {
+	using Clock = std::chrono::steady_clock;
+	std::chrono::time_point<Clock> last;
+	int lastKey = 0;
+
+   public:
+	void handle(int key, const std::function<void()>& func) {
+		auto now = Clock::now();
+		if ((now - last) <= 100ms && key == lastKey) { return; }
+		func();
+		last = Clock::now();
+		lastKey = key;
+	}
+};
 
 enum class Options {
 	NONE = wxID_NONE,
@@ -40,12 +58,12 @@ class MyFrame : public wxFrame {
 	ComicGallery* comicGallery = nullptr;
 	ComicViewer* comicViewer = nullptr;
 	wxSizer* sizer = nullptr;
-	int lastKeyCode = 0;
+	Debouncer debouncer;
 
 	void OnKeyDown(wxKeyEvent& event);
 	bool OpenComic();
 	void CloseComic();
-	void handleOptions(Options option);
+	void handleOptions(Options option, std::vector<ComicSource> paths);
 
    public:
 	MyFrame();
@@ -60,6 +78,7 @@ int MyApp::OnExit() {
 }
 
 bool MyApp::OnInit() {
+	delete wxLog::SetActiveTarget(new wxLogStream(nullptr, wxConvUTF8));
 	::wxInitAllImageHandlers();
 
 	SetAppName("comic_reader");
@@ -81,62 +100,57 @@ MyFrame::MyFrame() : wxFrame(nullptr, wxID_ANY, "") {
 }
 
 void MyFrame::OnKeyDown(wxKeyEvent& event) {
-	if (comicViewer != nullptr) {
-		switch (event.GetKeyCode()) {
-			case WXK_LEFT:
-				comicViewer->HandleInput(Navigation::PreviousView);
-				break;
-			case WXK_RIGHT:
-				comicViewer->HandleInput(Navigation::NextView);
-				break;
-			case WXK_ESCAPE:
-				CloseComic();
-				break;
-			case 'Z':
-			case WXK_UP:
-				comicViewer->NextZoom(event.GetPosition());
-				break;
-			case 'G':
-			case WXK_DOWN:
-				if (lastKeyCode != event.GetKeyCode()) {
+	debouncer.handle(event.GetKeyCode(), [&]() {
+		if (comicViewer != nullptr) {
+			switch (event.GetKeyCode()) {
+				case WXK_LEFT:
+					comicViewer->HandleInput(Navigation::PreviousView);
+					break;
+				case WXK_RIGHT:
+					comicViewer->HandleInput(Navigation::NextView);
+					break;
+				case WXK_ESCAPE:
+					CloseComic();
+					break;
+				case 'Z':
+				case WXK_UP:
+					comicViewer->NextZoom(event.GetPosition());
+					break;
+				case 'G':
+				case WXK_DOWN:
 					comicViewer->HandleInput(Navigation::JumpToPage);
-				}
-				break;
-		}
-	} else if (comicGallery != nullptr) {
-		switch (event.GetKeyCode()) {
-			case WXK_LEFT:
-				comicGallery->HandleInput(Navigation::PreviousComic);
-				break;
-			case WXK_RIGHT:
-				comicGallery->HandleInput(Navigation::NextComic);
-				break;
-			case WXK_RETURN:
-				if (!OpenComic()) { return; }
-				break;
-			case WXK_UP:
-				if (lastKeyCode != event.GetKeyCode()) {
-					handleOptions(Options::NONE);
-				}
-				break;
-			case WXK_ESCAPE: {
-				if (lastKeyCode != event.GetKeyCode()) {
+					break;
+			}
+		} else if (comicGallery != nullptr) {
+			switch (event.GetKeyCode()) {
+				case WXK_LEFT:
+					comicGallery->HandleInput(Navigation::PreviousComic);
+					break;
+				case WXK_RIGHT:
+					comicGallery->HandleInput(Navigation::NextComic);
+					break;
+				case WXK_RETURN:
+					if (!OpenComic()) { return; }
+					break;
+				case WXK_UP:
+					handleOptions(Options::NONE, {});
+					break;
+				case WXK_ESCAPE: {
 					wxMessageDialog dialog(
 						this, "Exit application?", "Confirm Action",
 						wxOK | wxCANCEL | wxICON_QUESTION);
 					if (dialog.ShowModal() == wxID_OK) { Close(); }
+					break;
 				}
-				break;
+				default:
+					if (std::isalpha(std::clamp(event.GetKeyCode(), -1, 255))) {
+						comicGallery->HandleInput(
+							Navigation::JumpToComic, event.GetKeyCode());
+					}
+					break;
 			}
-			default:
-				if (std::isalpha(std::clamp(event.GetKeyCode(), -1, 255))) {
-					comicGallery->HandleInput(
-						Navigation::JumpToComic, event.GetKeyCode());
-				}
-				break;
 		}
-	}
-	lastKeyCode = event.GetKeyCode();
+	});
 	event.Skip();
 }
 
@@ -170,7 +184,7 @@ void MyFrame::CloseComic() {
 	SetTitle(DEFAULT_FRAME_TITLE);
 }
 
-void MyFrame::handleOptions(Options option) {
+void MyFrame::handleOptions(Options option, std::vector<ComicSource> paths) {
 	const auto OPEN_LOCAL = 1;
 	const auto OPEN_REMOTE = 2;
 
@@ -196,9 +210,7 @@ void MyFrame::handleOptions(Options option) {
 	constexpr auto DEFAULT_KEY = "/DefaultAction";
 	wxConfigBase* cfg = wxConfigBase::Get();
 
-	std::vector<ComicSource> paths;
-
-	if (option == Options::DEFAULT) {
+	if (option == Options::DEFAULT && paths.empty()) {
 		auto defaultAction = cfg->ReadLong(DEFAULT_KEY, OPEN_LOCAL);
 		if (defaultAction == OPEN_LOCAL) {
 			option = Options::LOAD_LOCAL_COMICS;
@@ -207,7 +219,6 @@ void MyFrame::handleOptions(Options option) {
 			option = Options::LOAD_REMOTE_COMICS;
 		}
 	}
-	if (option == Options::NONE) { return; }
 	if (option == Options::LOAD_LOCAL_COMICS) {
 		wxFileDialog openFileDialog(
 			this, "Open Comic", "", "",
@@ -245,7 +256,7 @@ void MyFrame::LoadComics(const wxArrayString& args) {
 	sizer = new wxBoxSizer(wxVERTICAL);
 	comicGallery = new ComicGallery(this);
 
-	handleOptions(Options::DEFAULT);
+	handleOptions(Options::DEFAULT, paths);
 
 	sizer->Add(comicGallery, wxSizerFlags(1).Expand());
 

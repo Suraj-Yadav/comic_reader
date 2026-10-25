@@ -1,70 +1,63 @@
 #include "wxUtil.hpp"
 
 #include <wx/brush.h>
+#include <wx/debug.h>
+#include <wx/textwrapper.h>
 
-#include <cmath>
+#include "util.hpp"
 
-std::vector<std::pair<std::string, double>> split(
-	const std::string& text, const wxArrayDouble& widths,  //
-	const int cw, const int ch) {
-	std::vector<std::pair<std::string, double>> words(1);
-	double space = 0.0;
-	for (auto i = 0u; i < text.size(); ++i) {
-		if (text[i] == ' ') { space = widths[i]; }
-		if (std::isspace(text[i]) && !words.back().first.empty()) {
-			words.emplace_back();
-		}
-		if (!std::isspace(text[i])) {
-			words.back().first += text[i];
-			words.back().second += widths[i];
-		}
+// Collects the wrapped lines instead of drawing them.
+class LineCollector : public wxTextWrapper {
+   public:
+	LineCollector(wxWindow* win, const wxString& text, int widthMax) {
+		Wrap(win, text, widthMax);
 	}
 
-	std::vector<std::pair<std::string, double>> compressed(1, words[0]);
-	for (auto i = 1u; i < words.size(); ++i) {
-		if ((compressed.back().second + space + words[i].second) < cw) {
-			compressed.back().first += " " + words[i].first;
-			compressed.back().second += space + words[i].second;
-		} else {
-			compressed.push_back(words[i]);
-		}
-	}
-	return compressed;
-}
+	std::vector<wxString> lines;
 
+   protected:
+	void OnOutputLine(const wxString& line) override { lines.push_back(line); }
+};
+
+// Each input line (UTF-8) is wrapped to `cw` and centred horizontally; the
+// blocks are stacked upwards from the bottom edge `ch`. Returns the height
+// drawn.
 double drawWrappedText(
-	std::vector<std::string> lines, wxGraphicsContext* gc, const int cw,
-	const int ch) {
-	std::reverse(lines.begin(), lines.end());
-	gc->SetFont(
-		gc->CreateFont(wxFontInfo(15).Family(wxFONTFAMILY_DEFAULT), *wxWHITE));
-	double w = NAN, h = NAN, d = NAN, e = NAN;
-	gc->GetTextExtent(lines[0], &w, &h, &d, &e);
+	const std::vector<std::string>& utf8Lines, wxWindow* win,
+	wxGraphicsContext* gc, int cw, int ch) {
+	static auto font =
+		gc->CreateFont(wxFontInfo(15).Family(wxFONTFAMILY_DEFAULT), *wxWHITE);
 
-	int totalWords = 0;
-	double maxWidth = 0;
+	gc->SetFont(font);
+
+	// Line height from a fixed sample, so it doesn't depend on the first line.
+	double w = 0, h = 0, d = 0, e = 0;
+	gc->GetTextExtent("Ag", &w, &h, &d, &e);
+	const double lineH = h + d + e;
+
 	double y = ch;
-	for (const auto& text : lines) {
-		wxArrayDouble widths;
-		gc->GetPartialTextExtents(text, widths);
-		for (auto i = widths.size() - 1; i > 0; --i) {
-			widths[i] = widths[i] - widths[i - 1];
+	size_t total = 0;
+	for (auto it = utf8Lines.rbegin(); it != utf8Lines.rend(); ++it) {
+		const wxString txt = wxString::FromUTF8(it->data(), it->size());
+		const LineCollector wrapped(win, txt, cw);
+
+		y -= wrapped.lines.size() * lineH;
+		for (const auto& line : wrapped.lines) {
+			double lw = 0, lh = 0;
+			gc->GetTextExtent(
+				line, &lw, &lh);  // width of this line, for centring
+			gc->DrawText(line, cw / 2.0 - lw / 2, y);
+			y += lineH;
 		}
-		auto words = split(text, widths, cw, ch);
-		y -= words.size() * (h + d + e);
-		for (auto& elem : words) {
-			maxWidth = std::max(maxWidth, elem.second);
-			gc->DrawText(elem.first, cw / 2.0 - elem.second / 2, y);
-			y += h + d + e;
-		}
-		y -= words.size() * (h + d + e);
-		totalWords += words.size();
+		y -= wrapped.lines.size() * lineH;
+		total += wrapped.lines.size();
 	}
-	return totalWords * (h + d + e);
+	return total * lineH;
 }
 
 void drawBottomText(
-	std::string text, wxGraphicsContext* gc, const int cw, const int ch) {
+	const std::string& text, wxGraphicsContext* gc, const int cw,
+	const int ch) {
 	gc->SetFont(
 		gc->CreateFont(wxFontInfo(15).Family(wxFONTFAMILY_DEFAULT), *wxWHITE));
 	double w, h;
@@ -76,4 +69,10 @@ void drawBottomText(
 	gc->DrawRectangle((cw - bw) / 2, ch - bh / 2, bw, bh / 2);
 	double y = ch - h;
 	gc->DrawText(text, (cw - w) / 2, y);
+}
+
+bool naturalLess(std::string_view a, std::string_view b) {
+	return wxCmpNatural(
+			   wxString::FromUTF8(a.data(), a.size()),
+			   wxString::FromUTF8(b.data(), b.size())) < 0;
 }

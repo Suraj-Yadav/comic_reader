@@ -14,6 +14,7 @@
 
 #include "comic.hpp"
 #include "comic_viewer.hpp"
+#include "util.hpp"
 #include "wxUtil.hpp"
 
 const int GALLERY_UPDATE_ID = 100000;
@@ -40,6 +41,7 @@ ComicGallery::~ComicGallery() {
 }
 
 bool ComicGallery::AddComic(ComicSource src) {
+	if (src.size == -1) { return false; }
 	Comic c(std::move(src));
 	if (c.length() > 0) {
 		pool.addImage(c.coverPage);
@@ -53,12 +55,11 @@ void ComicGallery::loadComics(std::vector<ComicSource> paths) {
 	if (paths.empty()) { return; }
 	pool.clear();
 	comics.clear();
-	if (!paths[0].path.empty()) {
-		std::ranges::sort(paths, [](const auto& a, const auto& b) {
-			return wxCmpNatural(
-					   a.path.stem().string(), b.path.stem().string()) < 0;
-		});
-	}
+
+	std::ranges::sort(paths, [](const auto& a, const auto& b) {
+		return naturalLess(a.name, b.name);
+	});
+
 	auto ret = std::ranges::unique(paths);
 	paths.erase(ret.begin(), ret.end());
 	comics.reserve(paths.size());
@@ -120,8 +121,8 @@ void ComicGallery::OnPaint(wxPaintEvent& /* event */) {
 		}
 
 		auto textHeight = drawWrappedText(
-			{comics[idx].getName(), std::to_string(comics[idx].length())}, gc,
-			cw, ch);
+			{comics[idx].getName(), std::to_string(comics[idx].length())}, this,
+			gc, cw, ch);
 		const double GAP = 0.1 * (ch - textHeight);
 
 		const auto size = comics.size();
@@ -225,7 +226,7 @@ void ComicGallery::HandleInput(Navigation input, char ch) {
 			break;
 		case Navigation::JumpToComic: {
 			auto itr = std::ranges::find_if(comics, [ch](const auto& c) {
-				return wxCmpNatural(wxString(ch), c.getName()) < 0;
+				return naturalLess(std::string(1, ch), c.getName());
 			});
 			if (itr == comics.end()) { itr--; }
 			nextIndex = std::distance(comics.begin(), itr);

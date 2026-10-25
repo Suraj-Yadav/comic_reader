@@ -11,10 +11,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS
     CACHE INTERNAL ""
 )
 
+find_package(cpr CONFIG REQUIRED)
 find_package(LibArchive REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 find_package(Tweeny CONFIG REQUIRED)
 find_package(WebP CONFIG REQUIRED)
-find_package(nlohmann_json CONFIG REQUIRED)
 find_package(wxWidgets CONFIG REQUIRED)
 
 add_library(
@@ -32,13 +33,21 @@ add_library(
 
 target_link_libraries(
   common_lib
-  PUBLIC LibArchive::LibArchive
+  PUBLIC cpr::cpr
+         LibArchive::LibArchive
+         nlohmann_json::nlohmann_json
          tweeny
          WebP::webp
          wx::base
          wx::core
          wx::net
-         nlohmann_json::nlohmann_json
+)
+
+target_compile_definitions(
+  common_lib
+  PRIVATE $<$<CONFIG:Debug>:wxUSE_LOG_DEBUG=1>
+          $<$<CONFIG:RelWithDebInfo>:wxUSE_LOG_DEBUG=1>
+          $<$<CONFIG:Release>:wxUSE_LOG_DEBUG=0>
 )
 
 target_include_directories(common_lib PUBLIC "${CMAKE_SOURCE_DIR}/include")
