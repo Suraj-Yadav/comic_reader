@@ -8,12 +8,12 @@ extern const std::filesystem::path cacheDirectory;
 
 struct ComicSource {
 	std::filesystem::path path;
-	int chapterId = -1;
+	int chapterId = -1, titleId = -1;
 	int size = 0;
 	std::string name;
 
 	ComicSource(std::filesystem::path path);
-	ComicSource(int chapterId, int size, std::string name);
+	ComicSource(int chapterId, int size, std::string name, int titleId);
 
 	bool operator<=>(const ComicSource&) const = default;
 };
@@ -34,4 +34,5 @@ class Comic {
 	void markAsRead();
 	std::filesystem::path coverPage;
 	std::vector<std::filesystem::path> pages;
+	[[nodiscard]] const auto& source() const { return src; }
 };

@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <functional>
 #include <vector>
+#include <vips/vips8>
 
 #include "comic.hpp"
 #include "comic_gallery.hpp"
@@ -78,6 +79,7 @@ int MyApp::OnExit() {
 }
 
 bool MyApp::OnInit() {
+	VIPS_INIT(argv[0]);
 	delete wxLog::SetActiveTarget(new wxLogStream(nullptr, wxConvUTF8));
 	::wxInitAllImageHandlers();
 
@@ -116,8 +118,10 @@ void MyFrame::OnKeyDown(wxKeyEvent& event) {
 				case WXK_UP:
 					comicViewer->NextZoom(event.GetPosition());
 					break;
-				case 'G':
 				case WXK_DOWN:
+					comicViewer->NextPageMode();
+					break;
+				case 'G':
 					comicViewer->HandleInput(Navigation::JumpToPage);
 					break;
 			}

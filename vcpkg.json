@@ -1,20 +1,26 @@
 {
-    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
-    "name": "comic-reader",
     "dependencies": [
         "benchmark",
         "cpr",
         "gtest",
         {
-            "name": "libarchive",
-            "default-features": false
+            "name": "libvips",
+            "features": [
+                "cplusplus",
+                "jpeg",
+                "png",
+                "webp"
+            ]
         },
-        "libwebp",
         "nlohmann-json",
         "tweeny",
         {
-            "name": "wxwidgets",
-            "default-features": false
+            "default-features": false,
+            "name": "libarchive"
+        },
+        {
+            "default-features": false,
+            "name": "wxwidgets"
         }
     ]
 }

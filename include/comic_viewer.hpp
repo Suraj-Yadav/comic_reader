@@ -3,9 +3,6 @@
 #include <wx/graphics.h>
 #include <wx/wx.h>
 
-#include <filesystem>
-#include <functional>
-
 #include "animator.hpp"
 #include "comic.hpp"
 #include "image_utils.hpp"
@@ -25,15 +22,15 @@ enum Navigation {
 	NoOp
 };
 
-enum PanSource { Mouse, Animation };
-enum AnimationType { None, Pan, View };
+enum class PanSource { Mouse, Animation };
+enum class AnimationType { None, Pan, View };
 
 class ComicViewer : public wxPanel {
 	Comic& comic;
 	int index;
 	AnimationType animation;
 
-	ImagePool pool;
+	PageViewer pool;
 
 	wxPoint2DDouble inProgressPanVector;
 	wxPoint2DDouble inProgressPanStartPoint;
@@ -67,4 +64,5 @@ class ComicViewer : public wxPanel {
 	void load();
 	void HandleInput(Navigation);
 	void NextZoom(const wxPoint& pt);
+	void NextPageMode();
 };

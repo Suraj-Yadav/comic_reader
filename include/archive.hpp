@@ -2,7 +2,6 @@
 
 #include <archive.h>
 #include <archive_entry.h>
-#include <stdint.h>
 
 #include <cstdint>
 #include <filesystem>

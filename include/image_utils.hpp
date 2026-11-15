@@ -1,8 +1,10 @@
 #pragma once
 
 #include <wx/bitmap.h>
+#include <wx/graphics.h>
 
 #include <filesystem>
+#include <vector>
 
 #include "lru.hpp"
 
@@ -26,11 +28,45 @@ class ImagePool {
 	void load(int index);
 	void unload(int index);
 
+	friend class PageViewer;
+
    public:
 	ImagePool();
 	bool addImage(const std::filesystem::path& filepath);
 	wxSize size(int index);
+	int length() { return paths.size(); }
 	const wxBitmap& bitmap(int index);
 	auto empty() const { return paths.empty() || bitmaps.empty(); }
 	void clear();
+};
+
+enum class PageView : std::uint8_t {
+	SinglePage,
+	DoublePageLR,
+	DoublePageOddLR,
+	DoublePageRL,
+	DoublePageOddRL,
+};
+
+using SIZE_T = std::vector<std::filesystem::path>::size_type;
+
+class PageViewer {
+	ImagePool pool;
+	std::vector<wxSize> sizes;
+	std::vector<std::vector<SIZE_T>> mapping;
+	PageView view = PageView::SinglePage;
+
+   public:
+	PageViewer() { update(PageView::SinglePage); };
+	bool addImage(const std::filesystem::path& filepath) {
+		return pool.addImage(filepath);
+	}
+	auto empty() const { return pool.empty(); }
+	void clear() { pool.clear(); }
+	const auto& pageView() { return view; }
+	int length() { return mapping.size(); }
+
+	void draw(wxGraphicsContext& gc, int index);
+	wxSize size(int index);
+	void update(PageView view);
 };

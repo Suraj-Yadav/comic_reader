@@ -18,6 +18,9 @@ find_package(Tweeny CONFIG REQUIRED)
 find_package(WebP CONFIG REQUIRED)
 find_package(wxWidgets CONFIG REQUIRED)
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(VIPS REQUIRED IMPORTED_TARGET vips-cpp)
+
 add_library(
   common_lib STATIC
   src/archive.cpp
@@ -41,6 +44,9 @@ target_link_libraries(
          wx::base
          wx::core
          wx::net
+         PkgConfig::VIPS
+         WebP::libwebpmux
+         WebP::webpdemux
 )
 
 target_compile_definitions(

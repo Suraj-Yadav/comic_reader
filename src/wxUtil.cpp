@@ -4,6 +4,8 @@
 #include <wx/debug.h>
 #include <wx/textwrapper.h>
 
+#include <cmath>
+
 #include "util.hpp"
 
 // Collects the wrapped lines instead of drawing them.
@@ -56,19 +58,31 @@ double drawWrappedText(
 }
 
 void drawBottomText(
-	const std::string& text, wxGraphicsContext* gc, const int cw,
-	const int ch) {
+	const std::string& text, wxGraphicsContext* gc, const int cw, const int ch,
+	Position pos) {
 	gc->SetFont(
 		gc->CreateFont(wxFontInfo(15).Family(wxFONTFAMILY_DEFAULT), *wxWHITE));
-	double w, h;
+	double w = NAN, h = NAN;
 	gc->GetTextExtent(text, &w, &h);
-	const auto r = 10;
-	const auto bw = w + 5 + r, bh = h + 5;
+	constexpr auto R = 10.0;
+	constexpr auto G = 5.0;
+	const auto bw = w + G + R, bh = h + 5;
 	gc->SetBrush(wxBrush(*wxGREY_BRUSH));
-	gc->DrawRoundedRectangle((cw - bw) / 2, ch - bh, bw, bh, r);
-	gc->DrawRectangle((cw - bw) / 2, ch - bh / 2, bw, bh / 2);
-	double y = ch - h;
-	gc->DrawText(text, (cw - w) / 2, y);
+	if (pos == Position::LEFT) {
+		gc->DrawRoundedRectangle(bw / 2 - R, ch - bh, bw / 2 + R, bh, R);
+		gc->DrawRectangle(0, ch - bh, bw / 2, bh / 2);
+		gc->DrawRectangle(0, ch - bh / 2, bw, bh / 2);
+		gc->DrawText(text, (G + R) / 2, ch - h);
+	} else if (pos == Position::CENTER) {
+		gc->DrawRoundedRectangle((cw - bw) / 2, ch - bh, bw, bh, R);
+		gc->DrawRectangle((cw - bw) / 2, ch - bh / 2, bw, bh / 2);
+		gc->DrawText(text, (cw - w) / 2, ch - h);
+	} else if (pos == Position::RIGHT) {
+		gc->DrawRoundedRectangle(cw - bw, ch - bh, bw / 2 + R, bh, R);
+		gc->DrawRectangle(cw - bw / 2, ch - bh, bw / 2, bh / 2);
+		gc->DrawRectangle(cw - bw, ch - bh / 2, bw, bh / 2);
+		gc->DrawText(text, cw - bw + (G + R) / 2, ch - h);
+	}
 }
 
 bool naturalLess(std::string_view a, std::string_view b) {

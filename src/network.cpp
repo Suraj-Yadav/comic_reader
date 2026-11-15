@@ -118,7 +118,8 @@ std::vector<ComicSource> getUnreadChapters() {
 		auto pageCount = e["pageCount"].get<int>();
 		title += " ";
 		title += e["name"].get<std::string>();
-		out.emplace_back(e.value("id", 0), pageCount, title);
+		out.emplace_back(
+			e.value("id", 0), pageCount, title, e.value("mangaId", -1));
 	}
 	return out;
 }

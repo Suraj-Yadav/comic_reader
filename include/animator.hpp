@@ -13,7 +13,7 @@
 #include "util.hpp"
 
 template <typename T> class Animator : public wxEvtHandler {
-	bool isAnimating;
+	bool isAnimating{};
 	wxTimer timer;
 	tweeny::tween<T> tween;
 	std::chrono::steady_clock::time_point startTime;
@@ -22,7 +22,7 @@ template <typename T> class Animator : public wxEvtHandler {
 	std::function<void()> onEnd;
 
    public:
-	Animator() : isAnimating(false) {
+	Animator() {
 		timer.SetOwner(this);
 		Bind(wxEVT_TIMER, &Animator::OnTimer, this);
 	}
@@ -68,5 +68,5 @@ template <typename T> class Animator : public wxEvtHandler {
 		if (tween.progress() >= 1.0f) { End(); }
 	}
 
-	void OnTimer(wxTimerEvent& event) { Process(); }
+	void OnTimer(wxTimerEvent& /* event */) { Process(); }
 };

@@ -1,13 +1,36 @@
 #include "comic_viewer.hpp"
 
+#include <wx/colour.h>
+#include <wx/config.h>
 #include <wx/dcbuffer.h>
+#include <wx/graphics.h>
 #include <wx/numdlg.h>
 #include <wx/progdlg.h>
 
+#include <cmath>
+#include <format>
+
 #include "fuzzy.hpp"
-#include "network.hpp"
+#include "image_utils.hpp"
 #include "util.hpp"
 #include "wxUtil.hpp"
+
+const wxColour BACKGROUND_COLOR = wxColour(25, 25, 25);
+
+PageView getView(const Comic& comic) {
+	if (comic.source().titleId == -1) { return PageView::SinglePage; }
+	const auto KEY = std::format("/Comic/{}/View", comic.source().titleId);
+	wxConfigBase* cfg = wxConfigBase::Get();
+	return static_cast<PageView>(cfg->Read(KEY, 0L));
+}
+
+void saveView(const Comic& comic, PageView view) {
+	if (comic.source().titleId == -1) { return; }
+	const auto KEY = std::format("/Comic/{}/View", comic.source().titleId);
+	wxConfigBase* cfg = wxConfigBase::Get();
+	cfg->Write(KEY, static_cast<long>(view));
+	cfg->Flush();
+}
 
 ComicViewer::ComicViewer(wxWindow* parent, Comic& comic)
 	: wxPanel(parent), comic(comic), index(0), animation(AnimationType::None) {
@@ -18,7 +41,7 @@ ComicViewer::ComicViewer(wxWindow* parent, Comic& comic)
 	Bind(wxEVT_SIZE, &ComicViewer::OnSize, this);
 	Bind(wxEVT_CLOSE_WINDOW, &ComicViewer::OnClose, this);
 	SetBackgroundStyle(wxBG_STYLE_PAINT);
-	SetBackgroundColour(wxColour(25, 25, 25));
+	SetBackgroundColour(BACKGROUND_COLOR);
 }
 
 void ComicViewer::load() {
@@ -26,19 +49,19 @@ void ComicViewer::load() {
 		"Loading Comic", "Loading Pages", comic.length(), this);
 	comic.load([&](int i) { dialog.Update(i + 1); });
 	for (auto& page : comic.pages) { pool.addImage(page); }
+	pool.update(getView(comic));
 }
 
-void ComicViewer::OnClose(wxCloseEvent& event) {
+void ComicViewer::OnClose(wxCloseEvent& /* event */) {
 	comic.unload();
 	pool.clear();
 }
 
-bool ComicViewer::verify(const wxGraphicsContext* gc, int i) {
-	if (i < 0 || i >= comic.length()) { return false; }
-	return true;
+bool ComicViewer::verify(const wxGraphicsContext* /* gc */, int i) {
+	return i >= 0 && i < pool.length();
 }
 
-void ComicViewer::OnPaint(wxPaintEvent& event) {
+void ComicViewer::OnPaint(wxPaintEvent& /* event */) {
 	if (pool.empty()) { return; }
 	if (comic.pages.empty()) { return; }
 
@@ -52,8 +75,6 @@ void ComicViewer::OnPaint(wxPaintEvent& event) {
 	if (gc) {
 		const auto& cw = GetClientSize().GetWidth();
 		const auto& ch = GetClientSize().GetHeight();
-		const auto& iw = pool.size(index).GetWidth();
-		const auto& ih = pool.size(index).GetHeight();
 
 		if (viewport.IsEmpty()) {
 			viewport = Viewport(0, 0, cw, ch);
@@ -72,13 +93,37 @@ void ComicViewer::OnPaint(wxPaintEvent& event) {
 		gc->Scale(zoom, zoom);
 		gc->Translate(-totalPan.m_x, -totalPan.m_y);
 
-		gc->DrawBitmap(pool.bitmap(index), 0, 0, iw, ih);
+		pool.draw(*gc, index);
 
 		gc->Translate(totalPan.m_x, totalPan.m_y);
 		gc->Scale(1.0 / zoom, 1.0 / zoom);
+
 		drawBottomText(
-			std::to_string(index + 1) + "/" + std::to_string(comic.length()),
-			gc, cw, ch);
+			std::format("{}%", static_cast<int>(100 * GetZoom())), gc, cw, ch,
+			Position::LEFT);
+		drawBottomText(
+			std::format("{}/{}", index + 1, pool.length()), gc, cw, ch);
+		{
+			std::string text;
+			switch (pool.pageView()) {
+				case PageView::SinglePage:
+					text = "Single Page";
+					break;
+				case PageView::DoublePageLR:
+					text = "Double Page L to R";
+					break;
+				case PageView::DoublePageOddLR:
+					text = "Double Page Odd L to R";
+					break;
+				case PageView::DoublePageRL:
+					text = "Double Page R to L";
+					break;
+				case PageView::DoublePageOddRL:
+					text = "Double Page Odd R to L";
+					break;
+			}
+			drawBottomText(text, gc, cw, ch, Position::RIGHT);
+		}
 		delete gc;
 	}
 }
@@ -121,12 +166,12 @@ void ComicViewer::HandleInput(Navigation input) {
 		wxPoint2DDouble(pool.size(index).GetX(), pool.size(index).GetY());
 
 	if (dir == Navigation::NextPage) {
-		nextIndex = std::min(index + 1, comic.length() - 1);
+		nextIndex = std::min(index + 1, pool.length() - 1);
 	} else if (dir == Navigation::PreviousPage) {
 		nextIndex = std::max(index - 1, 0);
 	} else if (dir == Navigation::JumpToPage) {
 		nextIndex = wxGetNumberFromUser(
-						"Go To Page", "", "", index + 1, 1, comic.length()) -
+						"Go To Page", "", "", index + 1, 1, pool.length()) -
 					1;
 		if (nextIndex < 0) { nextIndex = index; }
 	}
@@ -148,7 +193,7 @@ void ComicViewer::HandleInput(Navigation input) {
 			MAX_DURATION_MS, {}, delta,	 //
 			[this](auto v) { ProcessPan(v, true, PanSource::Animation); },
 			[this]() { FinishPan(true, PanSource::Animation); });
-	} else if (index == (comic.length() - 1) && input == Navigation::NextView) {
+	} else if (index == (pool.length() - 1) && input == Navigation::NextView) {
 		comic.markAsRead();
 	}
 }
@@ -189,12 +234,38 @@ std::pair<Navigation, wxPoint2DDouble> ComicViewer::ComputeMove(
 	return {Navigation::NoOp, {}};
 }
 
+void ComicViewer::NextPageMode() {
+	auto mode = pool.pageView();
+	switch (mode) {
+		case PageView::SinglePage:
+			mode = PageView::DoublePageLR;
+			break;
+		case PageView::DoublePageLR:
+			mode = PageView::DoublePageOddLR;
+			break;
+		case PageView::DoublePageOddLR:
+			mode = PageView::DoublePageRL;
+			break;
+		case PageView::DoublePageRL:
+			mode = PageView::DoublePageOddRL;
+			break;
+		case PageView::DoublePageOddRL:
+			mode = PageView::SinglePage;
+			break;
+	}
+	pool.update(mode);
+	saveView(comic, mode);
+	Refresh();
+}
+
 void ComicViewer::NextZoom(const wxPoint& pt) {
 	auto cs = GetClientSize();
 	auto currentZoom = GetZoom();
 
 	std::vector<double> validZooms = {
 		double(cs.GetWidth()) / pool.size(index).GetWidth(),
+		0.5 * double(cs.GetWidth()) / pool.size(index).GetWidth(),
+		0.75 * double(cs.GetWidth()) / pool.size(index).GetWidth(),
 		double(cs.GetHeight()) / pool.size(index).GetHeight(),
 		1.0,
 	};

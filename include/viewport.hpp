@@ -4,14 +4,14 @@
 
 class Viewport : public wxRect2DDouble {
    public:
-	Viewport() : wxRect2DDouble() {}
+	Viewport() = default;
 	Viewport(wxDouble x, wxDouble y, wxDouble w, wxDouble h)
 		: wxRect2DDouble(x, y, w, h) {}
 
-	double W() const;
-	double H() const;
-	double X() const;
-	double Y() const;
+	[[nodiscard]] double W() const;
+	[[nodiscard]] double H() const;
+	[[nodiscard]] double X() const;
+	[[nodiscard]] double Y() const;
 
 	void Translate(const wxPoint2DDouble& delta);
 	void Translate(double deltaX, double deltaY);
