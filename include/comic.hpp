@@ -11,9 +11,13 @@ struct ComicSource {
 	int chapterId = -1, titleId = -1;
 	int size = 0;
 	std::string name;
+	std::string title;
+	float chapterNumber;
 
 	ComicSource(std::filesystem::path path);
-	ComicSource(int chapterId, int size, std::string name, int titleId);
+	ComicSource(
+		int chapterId, int size, std::string name, int titleId,
+		std::string title, float chapterNumber);
 
 	bool operator<=>(const ComicSource&) const = default;
 };

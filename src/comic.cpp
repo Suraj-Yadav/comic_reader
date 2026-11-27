@@ -87,13 +87,19 @@ void loadFromRemoteFile(
 }
 
 ComicSource::ComicSource(std::filesystem::path _path)
-	: path(std::move(_path)), name(path.stem()) {}
+	: path(std::move(_path)),
+	  name(path.stem()),
+	  title(name),
+	  chapterNumber(0) {}
 ComicSource::ComicSource(
-	int _chapterId, int _size, std::string _name, int _titleId)
+	int _chapterId, int _size, std::string _name, int _titleId,
+	std::string _title, float _chapterNumber)
 	: chapterId(_chapterId),
 	  titleId(_titleId),
 	  size(_size),
-	  name(std::move(_name)) {}
+	  name(std::move(_name)),
+	  title(std::move(_title)),
+	  chapterNumber(_chapterNumber) {}
 
 Comic::Comic(ComicSource source) : src(std::move(source)) {
 	storage = std::to_string(COMIC_COUNTER.fetch_add(1));

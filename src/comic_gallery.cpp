@@ -10,6 +10,7 @@
 #include <future>
 #include <queue>
 #include <ranges>
+#include <string>
 #include <utility>
 
 #include "comic.hpp"
@@ -57,7 +58,9 @@ void ComicGallery::loadComics(std::vector<ComicSource> paths) {
 	comics.clear();
 
 	std::ranges::sort(paths, [](const auto& a, const auto& b) {
-		return naturalLess(a.name, b.name);
+		auto aa = a.title + " " + std::to_string(a.chapterNumber);
+		auto bb = b.title + " " + std::to_string(b.chapterNumber);
+		return naturalLess(aa, bb);
 	});
 
 	auto ret = std::ranges::unique(paths);

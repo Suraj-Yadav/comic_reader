@@ -114,12 +114,14 @@ std::vector<ComicSource> getUnreadChapters() {
 	auto j = nlohmann::json::parse(resp.text);
 	std::vector<ComicSource> out;
 	for (auto& e : j["data"]["chapters"]["nodes"]) {
-		auto title = e["manga"]["title"].get<std::string>();
 		auto pageCount = e["pageCount"].get<int>();
-		title += " ";
-		title += e["name"].get<std::string>();
+		auto title = e["manga"]["title"].get<std::string>();
+		auto name = title;
+		name += " ";
+		name += e["name"].get<std::string>();
 		out.emplace_back(
-			e.value("id", 0), pageCount, title, e.value("mangaId", -1));
+			e.value("id", 0), pageCount, name, e.value("mangaId", -1), title,
+			e["chapterNumber"].get<float>());
 	}
 	return out;
 }
